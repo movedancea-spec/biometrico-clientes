@@ -450,11 +450,15 @@ function pintarMensualidad(r) {
     ? `Tu mensualidad de ${r.mes} es de Q${Number(r.mensualidad).toFixed(2)}. Genera tu link y págalo con tarjeta.`
     : "Todavía no tienes una mensualidad asignada — pídele al administrador del sistema que te la configure.";
 
-  el("btnGenerarLinkPago").hidden = !r.mensualidad;
+  // Un botón a la vez: si ya hay un link generado y pendiente de pagar,
+  // se muestra SOLO "Pagar ahora" (ya no tiene caso volver a generar
+  // otro); si todavía no hay link, se muestra SOLO "Generar link de pago".
   if (r.link) {
+    el("btnGenerarLinkPago").hidden = true;
     el("enlaceLinkPago").href = r.link;
     el("enlaceLinkPago").hidden = false;
   } else {
+    el("btnGenerarLinkPago").hidden = !r.mensualidad;
     el("enlaceLinkPago").hidden = true;
   }
 }
@@ -473,6 +477,7 @@ el("btnGenerarLinkPago").addEventListener("click", async () => {
       cargarMensualidad();
       return;
     }
+    el("btnGenerarLinkPago").hidden = true;
     el("enlaceLinkPago").href = r.link;
     el("enlaceLinkPago").hidden = false;
     el("mensajeExitoMensualidad").textContent = "¡Listo! Dale clic a \"Pagar ahora\" para completar el pago con tarjeta.";
