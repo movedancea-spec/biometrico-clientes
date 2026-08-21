@@ -154,6 +154,7 @@ function abrirModalEditarAcademia(academia) {
   el("inputEditarNombreAcademia").value = academia.nombre;
   el("inputEditarClaveAcademia").value = "";
   el("inputEditarLimite").value = academia.limite_alumnas;
+  el("inputEditarEmailAcademia").value = academia.email || "";
   el("mensajeErrorEditarAcademia").textContent = "";
   el("modalEditarAcademia").hidden = false;
 }
@@ -164,6 +165,7 @@ el("btnGuardarEditarAcademia").addEventListener("click", async () => {
   const nombre = el("inputEditarNombreAcademia").value.trim();
   const claveNueva = el("inputEditarClaveAcademia").value.trim();
   const nuevoLimite = Number(el("inputEditarLimite").value);
+  const email = el("inputEditarEmailAcademia").value.trim();
 
   el("mensajeErrorEditarAcademia").textContent = "";
 
@@ -178,6 +180,7 @@ el("btnGuardarEditarAcademia").addEventListener("click", async () => {
       academiaId: academiaEditandoId,
       nombre,
       limite: nuevoLimite,
+      email,
       ...(claveNueva ? { clave: claveNueva } : {}),
     });
     if (!r.success) { el("mensajeErrorEditarAcademia").textContent = r.error || "No se pudo guardar."; return; }
@@ -210,6 +213,7 @@ el("btnCrearAcademia").addEventListener("click", async () => {
   const nombre = el("inputNuevaAcademiaNombre").value.trim();
   const clave = el("inputNuevaAcademiaClave").value.trim();
   const limite = Number(el("inputNuevaAcademiaLimite").value) || 150;
+  const email = el("inputNuevaAcademiaEmail").value.trim();
 
   el("mensajeErrorCrear").textContent = "";
   el("mensajeExitoCrear").textContent = "";
@@ -219,12 +223,13 @@ el("btnCrearAcademia").addEventListener("click", async () => {
 
   el("btnCrearAcademia").disabled = true;
   try {
-    const r = await llamar("duenoCrearAcademia", { claveDueno, nombre, clave, limite });
+    const r = await llamar("duenoCrearAcademia", { claveDueno, nombre, clave, limite, email });
     if (!r.success) { el("mensajeErrorCrear").textContent = r.error || "No se pudo crear."; return; }
     el("mensajeExitoCrear").textContent = `Academia "${nombre}" creada. Avísales el nombre y la contraseña para que entren a su panel.`;
     el("inputNuevaAcademiaNombre").value = "";
     el("inputNuevaAcademiaClave").value = "";
     el("inputNuevaAcademiaLimite").value = "150";
+    el("inputNuevaAcademiaEmail").value = "";
     cargarAcademias();
   } catch (e) {
     el("mensajeErrorCrear").textContent = "No se pudo conectar. Inténtalo de nuevo.";

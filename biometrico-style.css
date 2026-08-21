@@ -135,6 +135,22 @@ min-height:18px;
 margin-top:4px;
 }
 
+.enlace-texto{
+display:block;
+width:100%;
+margin-top:16px;
+font-size:13px;
+color:var(--color-marca-texto-suave2);
+text-decoration:underline;
+background:none;
+border:none;
+cursor:pointer;
+font-family:inherit;
+text-align:center;
+}
+
+.enlace-texto:hover{ color:var(--color-marca); }
+
 /* -------- barra superior tras iniciar sesión -------- */
 
 .barra-superior{

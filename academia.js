@@ -160,6 +160,7 @@ function mostrarPanel() {
   aplicarMarca(sesion.colorMarca);
   aplicarLogoEnHeader(sesion.logoKey);
   el("inputColorMarca").value = sesion.colorMarca || "#ef4b9b";
+  el("inputEmailCuenta").value = sesion.email || "";
   cargarAlumnas();
 }
 
@@ -199,6 +200,7 @@ async function intentarEntrar() {
       limiteAlumnas: r.limiteAlumnas,
       colorMarca: r.colorMarca || null,
       logoKey: r.logoKey || null,
+      email: r.email || null,
     });
     mostrarPanel();
   } catch (e) {
@@ -213,6 +215,172 @@ el("btnEntrarAcademia").addEventListener("click", intentarEntrar);
 el("inputClaveAcademia").addEventListener("keydown", (e) => { if (e.key === "Enter") intentarEntrar(); });
 
 el("btnSalirAcademia").addEventListener("click", () => volverALogin());
+
+// ---------------------------------------------------------------
+// OLVIDÉ MI CONTRASEÑA — paso 1: pedir el enlace de recuperación.
+// No requiere haber iniciado sesión (es justo para cuando no se
+// puede entrar).
+// ---------------------------------------------------------------
+el("btnMostrarOlvide").addEventListener("click", () => {
+  el("pantallaLogin").hidden = true;
+  el("pantallaOlvide").hidden = false;
+  el("inputOlvideNombre").value = el("inputNombreAcademia").value;
+  el("mensajeErrorOlvide").textContent = "";
+  el("mensajeExitoOlvide").textContent = "";
+});
+
+el("btnCancelarOlvide").addEventListener("click", () => {
+  el("pantallaOlvide").hidden = true;
+  el("pantallaLogin").hidden = false;
+});
+
+el("btnEnviarOlvide").addEventListener("click", async () => {
+  const nombre = el("inputOlvideNombre").value.trim();
+  const email = el("inputOlvideEmail").value.trim();
+  el("mensajeErrorOlvide").textContent = "";
+  el("mensajeExitoOlvide").textContent = "";
+
+  if (!nombre || !email) {
+    el("mensajeErrorOlvide").textContent = "Escribe el nombre de tu academia y tu correo registrado.";
+    return;
+  }
+
+  el("btnEnviarOlvide").disabled = true;
+  try {
+    const resp = await fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      // "origenPanel" le dice al servidor a qué dirección apunta ESTA
+      // misma página, para armar el enlace del correo — así el Worker
+      // no necesita saber de antemano dónde quedó publicado el panel.
+      body: JSON.stringify({
+        accion: "academiaSolicitarRecuperacion",
+        nombre,
+        email,
+        origenPanel: window.location.origin + window.location.pathname,
+      }),
+    });
+    const r = await resp.json();
+    if (!r.success) {
+      el("mensajeErrorOlvide").textContent = r.error || "No se pudo procesar la solicitud.";
+      return;
+    }
+    el("mensajeExitoOlvide").textContent = r.mensaje || "Si los datos coinciden con una cuenta, te llega un correo con instrucciones.";
+  } catch (e) {
+    el("mensajeErrorOlvide").textContent = "No se pudo conectar. Inténtalo de nuevo.";
+  } finally {
+    el("btnEnviarOlvide").disabled = false;
+  }
+});
+
+// ---------------------------------------------------------------
+// OLVIDÉ MI CONTRASEÑA — paso 2: se llega aquí desde el enlace del
+// correo (academia.html?recuperar=TOKEN). Se detecta apenas carga la
+// página y se muestra directo el formulario de contraseña nueva.
+// ---------------------------------------------------------------
+const tokenRecuperacion = new URLSearchParams(window.location.search).get("recuperar");
+
+if (tokenRecuperacion) {
+  el("pantallaLogin").hidden = true;
+  el("pantallaOlvide").hidden = true;
+  el("pantallaRestablecer").hidden = false;
+}
+
+el("btnRestablecerClave").addEventListener("click", async () => {
+  const claveNueva = el("inputRestablecerClave").value;
+  const confirmar = el("inputRestablecerClaveConfirmar").value;
+  el("mensajeErrorRestablecer").textContent = "";
+  el("mensajeExitoRestablecer").textContent = "";
+
+  if (claveNueva.length < 4) {
+    el("mensajeErrorRestablecer").textContent = "La contraseña nueva debe tener al menos 4 caracteres.";
+    return;
+  }
+  if (claveNueva !== confirmar) {
+    el("mensajeErrorRestablecer").textContent = "Las dos contraseñas no coinciden.";
+    return;
+  }
+
+  el("btnRestablecerClave").disabled = true;
+  try {
+    const resp = await fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ accion: "academiaRestablecerClave", token: tokenRecuperacion, claveNueva }),
+    });
+    const r = await resp.json();
+    if (!r.success) {
+      el("mensajeErrorRestablecer").textContent = r.error || "No se pudo cambiar la contraseña.";
+      return;
+    }
+    el("mensajeExitoRestablecer").textContent = "¡Listo! Ya puedes entrar con tu contraseña nueva.";
+    el("btnRestablecerClave").disabled = true;
+    setTimeout(() => {
+      // Se quita el "?recuperar=..." de la URL y regresa al login normal.
+      window.location.href = window.location.pathname;
+    }, 2000);
+  } catch (e) {
+    el("mensajeErrorRestablecer").textContent = "No se pudo conectar. Inténtalo de nuevo.";
+    el("btnRestablecerClave").disabled = false;
+  }
+});
+
+// ---------------------------------------------------------------
+// MI CUENTA — correo de recuperación y cambiar contraseña (estando
+// ya logueado, distinto del flujo de "olvidé mi contraseña").
+// ---------------------------------------------------------------
+el("btnGuardarEmail").addEventListener("click", async () => {
+  const email = el("inputEmailCuenta").value.trim();
+  el("mensajeErrorEmail").textContent = "";
+  el("mensajeExitoEmail").textContent = "";
+  el("btnGuardarEmail").disabled = true;
+
+  try {
+    const r = await llamar("academiaActualizarEmail", { email });
+    if (!r.success) { el("mensajeErrorEmail").textContent = r.error || "No se pudo guardar."; return; }
+    sesion.email = r.email || null;
+    guardarSesion(sesion);
+    el("mensajeExitoEmail").textContent = "¡Correo guardado!";
+  } catch (e) {
+    el("mensajeErrorEmail").textContent = "No se pudo conectar. Inténtalo de nuevo.";
+  } finally {
+    el("btnGuardarEmail").disabled = false;
+  }
+});
+
+el("btnCambiarClave").addEventListener("click", async () => {
+  const claveNueva = el("inputClaveNueva").value;
+  const confirmar = el("inputClaveNuevaConfirmar").value;
+  el("mensajeErrorClave").textContent = "";
+  el("mensajeExitoClave").textContent = "";
+
+  if (claveNueva.length < 4) {
+    el("mensajeErrorClave").textContent = "La contraseña nueva debe tener al menos 4 caracteres.";
+    return;
+  }
+  if (claveNueva !== confirmar) {
+    el("mensajeErrorClave").textContent = "Las dos contraseñas no coinciden.";
+    return;
+  }
+
+  el("btnCambiarClave").disabled = true;
+  try {
+    const r = await llamar("academiaCambiarClave", { claveNueva });
+    if (!r.success) { el("mensajeErrorClave").textContent = r.error || "No se pudo cambiar."; return; }
+    // La sesión guardada usa la clave para autenticar cada acción — si
+    // no se actualiza aquí también, el siguiente clic (por ejemplo,
+    // cargar la lista de alumnas) fallaría con "Sesión inválida".
+    sesion.clave = claveNueva;
+    guardarSesion(sesion);
+    el("inputClaveNueva").value = "";
+    el("inputClaveNuevaConfirmar").value = "";
+    el("mensajeExitoClave").textContent = "¡Contraseña cambiada! La vas a necesitar la próxima vez que entres.";
+  } catch (e) {
+    el("mensajeErrorClave").textContent = "No se pudo conectar. Inténtalo de nuevo.";
+  } finally {
+    el("btnCambiarClave").disabled = false;
+  }
+});
 
 // ---------------------------------------------------------------
 // LISTAR / PINTAR ALUMNAS
@@ -453,10 +621,15 @@ el("btnGuardarMarca").addEventListener("click", async () => {
 });
 
 // ---------------------------------------------------------------
-// INICIO — si ya había sesión guardada, entra directo
+// INICIO — si ya había sesión guardada, entra directo (a menos que se
+// haya llegado aquí desde un enlace de "olvidé mi contraseña" — en
+// ese caso se prioriza poner la contraseña nueva, no colar la sesión
+// vieja que ya estaba guardada en este navegador).
 // ---------------------------------------------------------------
-const sesionGuardada = cargarSesionGuardada();
-if (sesionGuardada) {
-  sesion = sesionGuardada;
-  mostrarPanel();
+if (!tokenRecuperacion) {
+  const sesionGuardada = cargarSesionGuardada();
+  if (sesionGuardada) {
+    sesion = sesionGuardada;
+    mostrarPanel();
+  }
 }
