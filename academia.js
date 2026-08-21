@@ -31,12 +31,49 @@ function escaparHtml(t) {
   return d.innerHTML;
 }
 
-function leerArchivoComoBase64(archivo) {
+// Las fotos que salen directo de un celular pueden pesar varios MB —
+// eso es lo que hacía que subir el logo (o una foto de alumna) se
+// sintiera lentísimo, o hasta se quedara pegado. Antes de mandarla al
+// servidor, se reduce aquí mismo en el navegador a un tamaño de sobra
+// para cómo se usa en el sistema (nunca se muestra más grande que un
+// círculo o un logo chiquito), así que baja de varios MB a unos pocos
+// cientos de KB sin notarse la diferencia visualmente.
+function redimensionarImagen(archivo, ladoMaximo = 480, calidadJpeg = 0.82) {
   return new Promise((resolve, reject) => {
     if (!archivo) return resolve(null);
     const lector = new FileReader();
-    lector.onload = () => resolve(lector.result);
-    lector.onerror = reject;
+    lector.onerror = () => reject(new Error("No se pudo leer el archivo."));
+    lector.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error("No se pudo abrir esa imagen. Prueba con un JPG o PNG."));
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > ladoMaximo || height > ladoMaximo) {
+          if (width >= height) {
+            height = Math.round(height * (ladoMaximo / width));
+            width = ladoMaximo;
+          } else {
+            width = Math.round(width * (ladoMaximo / height));
+            height = ladoMaximo;
+          }
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, width, height);
+
+        // Los logos suelen tener fondo transparente (PNG) — eso se
+        // conserva. Las fotos normales (JPEG) se comprimen más, porque
+        // no necesitan transparencia y así pesan bastante menos.
+        const conservaTransparencia = /image\/(png|webp|gif)/.test(archivo.type);
+        const dataUrl = conservaTransparencia
+          ? canvas.toDataURL("image/png")
+          : canvas.toDataURL("image/jpeg", calidadJpeg);
+        resolve(dataUrl);
+      };
+      img.src = lector.result;
+    };
     lector.readAsDataURL(archivo);
   });
 }
@@ -246,7 +283,7 @@ el("btnCrearAlumna").addEventListener("click", async () => {
 
   el("btnCrearAlumna").disabled = true;
   try {
-    const fotoBase64 = await leerArchivoComoBase64(archivo);
+    const fotoBase64 = await redimensionarImagen(archivo);
     const r = await llamar("academiaCrearAlumna", { nombre, clasesPorMes, fotoBase64 });
     if (!r.success) {
       el("mensajeErrorCrear").textContent = r.error || "No se pudo agregar.";
@@ -258,7 +295,7 @@ el("btnCrearAlumna").addEventListener("click", async () => {
     el("inputNuevaAlumnaFoto").value = "";
     cargarAlumnas();
   } catch (e) {
-    el("mensajeErrorCrear").textContent = "No se pudo conectar. Inténtalo de nuevo.";
+    el("mensajeErrorCrear").textContent = e.message || "No se pudo conectar. Inténtalo de nuevo.";
   } finally {
     el("btnCrearAlumna").disabled = false;
   }
@@ -298,7 +335,7 @@ el("btnGuardarEditar").addEventListener("click", async () => {
 
   el("btnGuardarEditar").disabled = true;
   try {
-    const fotoBase64 = await leerArchivoComoBase64(archivo);
+    const fotoBase64 = await redimensionarImagen(archivo);
     const r = await llamar("academiaEditarAlumna", {
       alumnaId: alumnaEditandoId,
       nombre,
@@ -310,7 +347,7 @@ el("btnGuardarEditar").addEventListener("click", async () => {
     el("modalAlumna").hidden = true;
     cargarAlumnas();
   } catch (e) {
-    el("mensajeErrorEditar").textContent = "No se pudo conectar. Inténtalo de nuevo.";
+    el("mensajeErrorEditar").textContent = e.message || "No se pudo conectar. Inténtalo de nuevo.";
   } finally {
     el("btnGuardarEditar").disabled = false;
   }
@@ -348,9 +385,15 @@ el("inputLogoMarca").addEventListener("change", async () => {
   const archivo = el("inputLogoMarca").files[0] || null;
   const preview = el("logoPreviewPersonalizar");
   if (!archivo) { preview.hidden = true; return; }
-  const dataUrl = await leerArchivoComoBase64(archivo);
-  preview.src = dataUrl;
-  preview.hidden = false;
+  el("mensajeErrorMarca").textContent = "";
+  try {
+    const dataUrl = await redimensionarImagen(archivo);
+    preview.src = dataUrl;
+    preview.hidden = false;
+  } catch (e) {
+    preview.hidden = true;
+    el("mensajeErrorMarca").textContent = e.message || "No se pudo abrir esa imagen.";
+  }
 });
 
 el("btnGuardarMarca").addEventListener("click", async () => {
@@ -362,7 +405,7 @@ el("btnGuardarMarca").addEventListener("click", async () => {
   el("btnGuardarMarca").disabled = true;
 
   try {
-    const logoBase64 = await leerArchivoComoBase64(archivo);
+    const logoBase64 = await redimensionarImagen(archivo);
     const r = await llamar("academiaActualizarMarca", {
       colorMarca: color,
       ...(logoBase64 ? { logoBase64 } : {}),
@@ -393,7 +436,7 @@ el("btnGuardarMarca").addEventListener("click", async () => {
     el("inputLogoMarca").value = "";
     el("logoPreviewPersonalizar").hidden = true;
   } catch (e) {
-    el("mensajeErrorMarca").textContent = "No se pudo conectar. Inténtalo de nuevo.";
+    el("mensajeErrorMarca").textContent = e.message || "No se pudo conectar. Inténtalo de nuevo.";
   } finally {
     el("btnGuardarMarca").disabled = false;
   }
