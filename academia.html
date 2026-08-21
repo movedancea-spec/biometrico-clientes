@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Biométrico — Panel de la Academia</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="biometrico-style.css" />
+</head>
+<body>
+
+<!-- ============ LOGIN ============ -->
+<div class="tarjeta-login" id="pantallaLogin">
+  <h1>📋 Panel de Asistencia</h1>
+  <p class="subtitulo">Entra con el nombre y la contraseña que te dieron.</p>
+  <input type="text" id="inputNombreAcademia" placeholder="Nombre de tu academia" autocomplete="off" />
+  <input type="password" id="inputClaveAcademia" placeholder="Contraseña" autocomplete="off" />
+  <button class="btn" id="btnEntrarAcademia">Entrar →</button>
+  <p class="mensaje-error" id="mensajeErrorLogin"></p>
+</div>
+
+<!-- ============ PANEL ============ -->
+<div class="contenedor" id="pantallaPanel" hidden>
+
+  <div class="barra-superior">
+    <h1 id="tituloAcademia">📋 Panel de Asistencia</h1>
+    <div style="display:flex; align-items:center; gap:10px;">
+      <span class="info-cuenta" id="infoLimiteAlumnas"></span>
+      <button class="btn secundario chico" id="btnSalirAcademia">Salir</button>
+    </div>
+  </div>
+
+  <!-- -------- Marcar asistencia -------- -->
+  <div class="panel">
+    <h2>✅ Marcar asistencia</h2>
+    <p class="ayuda">Escribe el código de la alumna (el mismo que reconoce el lector de huella) y presiona Marcar.</p>
+    <div class="fila-formulario">
+      <div>
+        <label>Código de la alumna</label>
+        <input type="number" id="inputCodigoAsistencia" placeholder="Ej: 12" />
+      </div>
+      <button class="btn" id="btnMarcarAsistencia" style="flex:0 0 auto; width:auto; padding:12px 22px;">Marcar</button>
+    </div>
+    <div id="resultadoAsistencia"></div>
+  </div>
+
+  <!-- -------- Agregar alumna -------- -->
+  <div class="panel">
+    <h2>➕ Agregar alumna</h2>
+    <p class="ayuda">El código se asigna solo, en automático — no se puede escoger ni se repite.</p>
+    <div class="fila-formulario">
+      <div>
+        <label>Nombre completo</label>
+        <input type="text" id="inputNuevaAlumnaNombre" placeholder="Nombre de la alumna" />
+      </div>
+      <div>
+        <label>Clases al mes</label>
+        <input type="number" id="inputNuevaAlumnaClases" placeholder="8" value="8" min="1" />
+      </div>
+      <div>
+        <label>Foto (opcional)</label>
+        <input type="file" id="inputNuevaAlumnaFoto" accept="image/*" />
+      </div>
+    </div>
+    <button class="btn" id="btnCrearAlumna" style="margin-top:6px;">Agregar alumna</button>
+    <p class="mensaje-error" id="mensajeErrorCrear"></p>
+    <p class="mensaje-exito" id="mensajeExitoCrear"></p>
+  </div>
+
+  <!-- -------- Lista de alumnas -------- -->
+  <div class="panel">
+    <h2>🧑‍🎓 Alumnas</h2>
+    <p class="ayuda" id="ayudaCantidadAlumnas"></p>
+    <div class="lista-tarjetas" id="listaAlumnas">
+      <p class="lista-vacia">Cargando alumnas...</p>
+    </div>
+  </div>
+
+</div>
+
+<!-- ============ MODAL: editar alumna ============ -->
+<div class="fondo-modal" id="modalAlumna" hidden>
+  <div class="caja-modal">
+    <h3>Editar alumna</h3>
+    <img class="foto-preview" id="fotoPreviewModal" src="" alt="" hidden />
+    <div class="campo">
+      <label>Nombre</label>
+      <input type="text" id="inputEditarNombre" />
+    </div>
+    <div class="campo">
+      <label>Clases al mes</label>
+      <input type="number" id="inputEditarClases" min="1" />
+    </div>
+    <div class="campo">
+      <label>Estado</label>
+      <select id="selectEditarEstado">
+        <option value="Activa">Activa</option>
+        <option value="Inactiva">Inactiva</option>
+      </select>
+    </div>
+    <div class="campo">
+      <label>Cambiar foto (opcional)</label>
+      <input type="file" id="inputEditarFoto" accept="image/*" />
+    </div>
+    <p class="mensaje-error" id="mensajeErrorEditar"></p>
+    <div class="acciones-modal">
+      <button class="btn secundario" id="btnCancelarEditar">Cancelar</button>
+      <button class="btn" id="btnGuardarEditar">Guardar</button>
+    </div>
+    <button class="btn peligro" id="btnBorrarAlumna" style="margin-top:10px;">🗑️ Borrar alumna</button>
+  </div>
+</div>
+
+<script src="academia.js"></script>
+</body>
+</html>

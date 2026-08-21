@@ -1,0 +1,392 @@
+/* ===================================================
+   BIOMÉTRICO — estilo compartido (páginas de admin)
+   Mismo look ligero/rosa de los paneles de MOVE, pero sin
+   ninguna marca de MOVE — este producto se vende a OTRAS
+   academias, así que cada quien ve el nombre de la suya.
+=================================================== */
+
+*{ box-sizing:border-box; }
+
+body{
+margin:0;
+min-height:100vh;
+font-family:'Poppins', system-ui, sans-serif;
+background:linear-gradient(160deg,#fff5fa 0%,#fdf1f8 40%,#f6eefc 100%);
+color:#3a2e3a;
+padding:24px 16px 60px;
+}
+
+.contenedor{
+max-width:920px;
+margin:0 auto;
+}
+
+.tarjeta-login{
+max-width:380px;
+margin:8vh auto 0;
+background:white;
+border-radius:20px;
+padding:32px 28px;
+box-shadow:0 12px 30px rgba(190,60,130,.12);
+text-align:center;
+}
+
+.tarjeta-login h1{
+font-size:20px;
+color:#ef4b9b;
+margin:4px 0 4px;
+}
+
+.tarjeta-login p.subtitulo{
+font-size:13px;
+color:#9a7d90;
+margin:0 0 20px;
+}
+
+input, select{
+width:100%;
+padding:12px 14px;
+border-radius:12px;
+border:2px solid #ffdcee;
+font-size:14px;
+font-family:inherit;
+margin-bottom:12px;
+background:#fffafc;
+color:#3a2e3a;
+}
+
+input:focus, select:focus{
+outline:none;
+border-color:#ef4b9b;
+}
+
+.btn{
+display:inline-block;
+width:100%;
+padding:13px 16px;
+border:none;
+border-radius:12px;
+background:#ef4b9b;
+color:white;
+font-weight:700;
+font-size:14px;
+font-family:inherit;
+cursor:pointer;
+transition:background .15s ease, transform .1s ease;
+}
+
+.btn:hover{ background:#e0245e; }
+.btn:active{ transform:scale(.98); }
+
+.btn.secundario{
+background:white;
+color:#ef4b9b;
+border:2px solid #ffdcee;
+}
+
+.btn.secundario:hover{ background:#fff0f7; }
+
+.btn.chico{
+width:auto;
+padding:8px 14px;
+font-size:12.5px;
+}
+
+.btn.peligro{ background:#e0245e; }
+.btn.peligro:hover{ background:#c01c4e; }
+
+.btn:disabled{
+opacity:.55;
+cursor:not-allowed;
+}
+
+.mensaje-error{
+color:#e0245e;
+font-size:13px;
+font-weight:600;
+min-height:18px;
+margin-top:4px;
+}
+
+.mensaje-exito{
+color:#1a9b6c;
+font-size:13px;
+font-weight:600;
+min-height:18px;
+margin-top:4px;
+}
+
+/* -------- barra superior tras iniciar sesión -------- */
+
+.barra-superior{
+display:flex;
+align-items:center;
+justify-content:space-between;
+gap:12px;
+flex-wrap:wrap;
+margin-bottom:22px;
+}
+
+.barra-superior h1{
+font-size:19px;
+color:#ef4b9b;
+margin:0;
+}
+
+.barra-superior .info-cuenta{
+font-size:12.5px;
+color:#9a7d90;
+font-weight:600;
+}
+
+/* -------- tarjetas / secciones -------- */
+
+.panel{
+background:white;
+border-radius:18px;
+padding:20px 20px 22px;
+box-shadow:0 8px 22px rgba(190,60,130,.08);
+margin-bottom:20px;
+}
+
+.panel h2{
+font-size:15px;
+color:#ef4b9b;
+margin:0 0 4px;
+}
+
+.panel p.ayuda{
+font-size:12.5px;
+color:#9a7d90;
+margin:0 0 16px;
+}
+
+.grid-stats{
+display:grid;
+grid-template-columns:repeat(auto-fit,minmax(120px,1fr));
+gap:10px;
+margin-bottom:18px;
+}
+
+.stat-caja{
+background:#fff5fa;
+border:2px solid #ffe3f0;
+border-radius:14px;
+padding:14px 10px;
+text-align:center;
+}
+
+.stat-numero{
+font-size:24px;
+font-weight:800;
+color:#ef4b9b;
+line-height:1;
+}
+
+.stat-etiqueta{
+font-size:11px;
+font-weight:700;
+color:#9a7d90;
+text-transform:uppercase;
+letter-spacing:.4px;
+margin-top:4px;
+}
+
+/* -------- formularios en línea -------- */
+
+.fila-formulario{
+display:flex;
+gap:10px;
+flex-wrap:wrap;
+align-items:flex-end;
+}
+
+.fila-formulario > div{
+flex:1;
+min-width:140px;
+}
+
+.fila-formulario label, .campo label{
+display:block;
+font-size:12px;
+font-weight:700;
+color:#a15277;
+margin-bottom:4px;
+}
+
+.fila-formulario input, .campo input{ margin-bottom:0; }
+
+/* -------- lista de tarjetas (academias / alumnas) -------- */
+
+.lista-tarjetas{
+display:flex;
+flex-direction:column;
+gap:10px;
+}
+
+.tarjeta-item{
+display:flex;
+align-items:center;
+gap:14px;
+border:2px solid #ffe3f0;
+border-radius:14px;
+padding:12px 14px;
+background:#fffafc;
+flex-wrap:wrap;
+}
+
+.tarjeta-item .foto-miniatura{
+width:46px;
+height:46px;
+border-radius:50%;
+object-fit:cover;
+background:#ffe3f0;
+flex-shrink:0;
+}
+
+.tarjeta-item .foto-miniatura.vacia{
+display:flex;
+align-items:center;
+justify-content:center;
+font-size:18px;
+color:#ef4b9b;
+}
+
+.tarjeta-item .info-principal{
+flex:1;
+min-width:150px;
+}
+
+.tarjeta-item .nombre-item{
+font-weight:700;
+font-size:14.5px;
+color:#3a2e3a;
+}
+
+.tarjeta-item .detalle-item{
+font-size:12px;
+color:#9a7d90;
+margin-top:2px;
+}
+
+.tarjeta-item .acciones-item{
+display:flex;
+gap:8px;
+align-items:center;
+flex-wrap:wrap;
+}
+
+.etiqueta-estado{
+display:inline-block;
+padding:3px 10px;
+border-radius:999px;
+font-size:11px;
+font-weight:700;
+}
+
+.etiqueta-estado.activa{
+background:#e6f8f1;
+color:#1a9b6c;
+}
+
+.etiqueta-estado.inactiva{
+background:#fdeaea;
+color:#c0392b;
+}
+
+.lista-vacia{
+text-align:center;
+color:#b899ac;
+font-size:13px;
+padding:22px 10px;
+}
+
+/* -------- modal simple para editar -------- */
+
+.fondo-modal{
+position:fixed;
+inset:0;
+background:rgba(60,20,45,.35);
+display:flex;
+align-items:center;
+justify-content:center;
+padding:16px;
+z-index:50;
+}
+
+.fondo-modal[hidden]{
+display:none;
+}
+
+.caja-modal{
+background:white;
+border-radius:18px;
+padding:22px 20px;
+max-width:380px;
+width:100%;
+max-height:88vh;
+overflow-y:auto;
+}
+
+.caja-modal h3{
+font-size:16px;
+color:#ef4b9b;
+margin:0 0 14px;
+}
+
+.foto-preview{
+width:84px;
+height:84px;
+border-radius:50%;
+object-fit:cover;
+background:#ffe3f0;
+margin:0 auto 12px;
+display:block;
+}
+
+.acciones-modal{
+display:flex;
+gap:8px;
+margin-top:10px;
+}
+
+.acciones-modal .btn{ flex:1; }
+
+/* -------- resultado de marcar asistencia -------- */
+
+.resultado-asistencia{
+text-align:center;
+padding:18px 10px;
+border-radius:14px;
+margin-top:14px;
+}
+
+.resultado-asistencia.exito{
+background:#e6f8f1;
+border:2px solid #b6ebd6;
+}
+
+.resultado-asistencia.error{
+background:#fdeaea;
+border:2px solid #f5c2c2;
+}
+
+.resultado-asistencia .foto-preview{ margin-bottom:8px; }
+
+.resultado-asistencia .nombre-resultado{
+font-weight:800;
+font-size:17px;
+color:#3a2e3a;
+}
+
+.resultado-asistencia .detalle-resultado{
+font-size:13px;
+color:#6b5a66;
+margin-top:4px;
+}
+
+@media (max-width:520px){
+.barra-superior{ flex-direction:column; align-items:flex-start; }
+.tarjeta-item{ flex-direction:column; align-items:flex-start; }
+.tarjeta-item .acciones-item{ width:100%; }
+}
