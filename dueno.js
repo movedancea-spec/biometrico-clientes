@@ -108,11 +108,11 @@ function pintarAcademias(academias) {
         </div>
       </div>
       <div class="acciones-item">
-        <button class="btn secundario chico" data-accion="limite">Límite</button>
+        <button class="btn secundario chico" data-accion="editar">Editar</button>
         <button class="btn ${a.activo ? "peligro" : ""} chico" data-accion="toggle">${a.activo ? "Desactivar" : "Activar"}</button>
       </div>
     `;
-    div.querySelector('[data-accion="limite"]').addEventListener("click", () => abrirModalLimite(a));
+    div.querySelector('[data-accion="editar"]').addEventListener("click", () => abrirModalEditarAcademia(a));
     div.querySelector('[data-accion="toggle"]').addEventListener("click", () => alternarActivo(a));
     cont.appendChild(div);
   });
@@ -144,30 +144,62 @@ async function alternarActivo(academia) {
 }
 
 // ---------------------------------------------------------------
-// EDITAR LÍMITE (modal)
+// EDITAR / BORRAR ACADEMIA (modal)
 // ---------------------------------------------------------------
-function abrirModalLimite(academia) {
+let academiaEditandoNombre = "";
+
+function abrirModalEditarAcademia(academia) {
   academiaEditandoId = academia.id;
+  academiaEditandoNombre = academia.nombre;
+  el("inputEditarNombreAcademia").value = academia.nombre;
+  el("inputEditarClaveAcademia").value = "";
   el("inputEditarLimite").value = academia.limite_alumnas;
-  el("mensajeErrorLimite").textContent = "";
-  el("modalLimite").hidden = false;
+  el("mensajeErrorEditarAcademia").textContent = "";
+  el("modalEditarAcademia").hidden = false;
 }
 
-el("btnCancelarLimite").addEventListener("click", () => { el("modalLimite").hidden = true; });
+el("btnCancelarEditarAcademia").addEventListener("click", () => { el("modalEditarAcademia").hidden = true; });
 
-el("btnGuardarLimite").addEventListener("click", async () => {
+el("btnGuardarEditarAcademia").addEventListener("click", async () => {
+  const nombre = el("inputEditarNombreAcademia").value.trim();
+  const claveNueva = el("inputEditarClaveAcademia").value.trim();
   const nuevoLimite = Number(el("inputEditarLimite").value);
-  if (!nuevoLimite || nuevoLimite < 1) {
-    el("mensajeErrorLimite").textContent = "Escribe un número válido.";
-    return;
-  }
+
+  el("mensajeErrorEditarAcademia").textContent = "";
+
+  if (!nombre) { el("mensajeErrorEditarAcademia").textContent = "El nombre no puede quedar vacío."; return; }
+  if (!nuevoLimite || nuevoLimite < 1) { el("mensajeErrorEditarAcademia").textContent = "Escribe un límite de alumnas válido."; return; }
+  if (claveNueva && claveNueva.length < 4) { el("mensajeErrorEditarAcademia").textContent = "La contraseña nueva debe tener al menos 4 caracteres."; return; }
+
+  el("btnGuardarEditarAcademia").disabled = true;
   try {
-    const r = await llamar("duenoActualizarAcademia", { claveDueno, academiaId: academiaEditandoId, limite: nuevoLimite });
-    if (!r.success) { el("mensajeErrorLimite").textContent = r.error || "No se pudo guardar."; return; }
-    el("modalLimite").hidden = true;
+    const r = await llamar("duenoActualizarAcademia", {
+      claveDueno,
+      academiaId: academiaEditandoId,
+      nombre,
+      limite: nuevoLimite,
+      ...(claveNueva ? { clave: claveNueva } : {}),
+    });
+    if (!r.success) { el("mensajeErrorEditarAcademia").textContent = r.error || "No se pudo guardar."; return; }
+    el("modalEditarAcademia").hidden = true;
     cargarAcademias();
   } catch (e) {
-    el("mensajeErrorLimite").textContent = "No se pudo conectar. Inténtalo de nuevo.";
+    el("mensajeErrorEditarAcademia").textContent = "No se pudo conectar. Inténtalo de nuevo.";
+  } finally {
+    el("btnGuardarEditarAcademia").disabled = false;
+  }
+});
+
+el("btnBorrarAcademia").addEventListener("click", async () => {
+  if (!window.confirm(`¿Borrar por completo a "${academiaEditandoNombre}"? Ya no va a poder iniciar sesión en ningún panel. Su historial de alumnas y asistencias se conserva, pero no vas a poder crear otra academia con ese mismo nombre. Esto no se puede deshacer.`)) return;
+
+  try {
+    const r = await llamar("duenoBorrarAcademia", { claveDueno, academiaId: academiaEditandoId });
+    if (!r.success) { el("mensajeErrorEditarAcademia").textContent = r.error || "No se pudo borrar."; return; }
+    el("modalEditarAcademia").hidden = true;
+    cargarAcademias();
+  } catch (e) {
+    el("mensajeErrorEditarAcademia").textContent = "No se pudo conectar. Inténtalo de nuevo.";
   }
 });
 
