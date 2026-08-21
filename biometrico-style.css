@@ -7,11 +7,30 @@
 
 *{ box-sizing:border-box; }
 
+/* Colores de marca — por defecto el rosa de siempre. Cada academia
+   puede reemplazar --color-marca (y de ahí se derivan automáticamente
+   los demás tonos, ver aplicarMarca() en academia.js/biometrico.js).
+   --color-peligro es FIJO a propósito (errores/borrar siempre en rojo,
+   sin importar el color de marca que elija la academia). */
+:root{
+--color-marca:#ef4b9b;
+--color-marca-oscuro:#e0245e;
+--color-marca-suave:#ffe3f0;
+--color-marca-suave2:#ffdcee;
+--color-marca-suave3:#ffc7e2;
+--color-marca-fondo:#fff5fa;
+--color-marca-fondo2:#fdf1f8;
+--color-marca-fondo3:#f6eefc;
+--color-marca-texto-suave:#a15277;
+--color-marca-texto-suave2:#c76b9c;
+--color-peligro:#e0245e;
+}
+
 body{
 margin:0;
 min-height:100vh;
 font-family:'Poppins', system-ui, sans-serif;
-background:linear-gradient(160deg,#fff5fa 0%,#fdf1f8 40%,#f6eefc 100%);
+background:linear-gradient(160deg,var(--color-marca-fondo) 0%,var(--color-marca-fondo2) 40%,var(--color-marca-fondo3) 100%);
 color:#3a2e3a;
 padding:24px 16px 60px;
 }
@@ -27,13 +46,13 @@ margin:8vh auto 0;
 background:white;
 border-radius:20px;
 padding:32px 28px;
-box-shadow:0 12px 30px rgba(190,60,130,.12);
+box-shadow:0 12px 30px rgba(0,0,0,.10);
 text-align:center;
 }
 
 .tarjeta-login h1{
 font-size:20px;
-color:#ef4b9b;
+color:var(--color-marca);
 margin:4px 0 4px;
 }
 
@@ -47,7 +66,7 @@ input, select{
 width:100%;
 padding:12px 14px;
 border-radius:12px;
-border:2px solid #ffdcee;
+border:2px solid var(--color-marca-suave2);
 font-size:14px;
 font-family:inherit;
 margin-bottom:12px;
@@ -57,7 +76,7 @@ color:#3a2e3a;
 
 input:focus, select:focus{
 outline:none;
-border-color:#ef4b9b;
+border-color:var(--color-marca);
 }
 
 .btn{
@@ -66,7 +85,7 @@ width:100%;
 padding:13px 16px;
 border:none;
 border-radius:12px;
-background:#ef4b9b;
+background:var(--color-marca);
 color:white;
 font-weight:700;
 font-size:14px;
@@ -75,16 +94,16 @@ cursor:pointer;
 transition:background .15s ease, transform .1s ease;
 }
 
-.btn:hover{ background:#e0245e; }
+.btn:hover{ background:var(--color-marca-oscuro); }
 .btn:active{ transform:scale(.98); }
 
 .btn.secundario{
 background:white;
-color:#ef4b9b;
-border:2px solid #ffdcee;
+color:var(--color-marca);
+border:2px solid var(--color-marca-suave2);
 }
 
-.btn.secundario:hover{ background:#fff0f7; }
+.btn.secundario:hover{ background:var(--color-marca-fondo); }
 
 .btn.chico{
 width:auto;
@@ -92,7 +111,7 @@ padding:8px 14px;
 font-size:12.5px;
 }
 
-.btn.peligro{ background:#e0245e; }
+.btn.peligro{ background:var(--color-peligro); }
 .btn.peligro:hover{ background:#c01c4e; }
 
 .btn:disabled{
@@ -101,7 +120,7 @@ cursor:not-allowed;
 }
 
 .mensaje-error{
-color:#e0245e;
+color:var(--color-peligro);
 font-size:13px;
 font-weight:600;
 min-height:18px;
@@ -127,9 +146,24 @@ flex-wrap:wrap;
 margin-bottom:22px;
 }
 
+.barra-superior .titulo-con-logo{
+display:flex;
+align-items:center;
+gap:10px;
+flex:1;
+min-width:0;
+}
+
+.barra-superior .logo-marca{
+max-height:34px;
+max-width:100px;
+object-fit:contain;
+flex-shrink:0;
+}
+
 .barra-superior h1{
 font-size:19px;
-color:#ef4b9b;
+color:var(--color-marca);
 margin:0;
 }
 
@@ -145,13 +179,13 @@ font-weight:600;
 background:white;
 border-radius:18px;
 padding:20px 20px 22px;
-box-shadow:0 8px 22px rgba(190,60,130,.08);
+box-shadow:0 8px 22px rgba(0,0,0,.06);
 margin-bottom:20px;
 }
 
 .panel h2{
 font-size:15px;
-color:#ef4b9b;
+color:var(--color-marca);
 margin:0 0 4px;
 }
 
@@ -169,8 +203,8 @@ margin-bottom:18px;
 }
 
 .stat-caja{
-background:#fff5fa;
-border:2px solid #ffe3f0;
+background:var(--color-marca-fondo);
+border:2px solid var(--color-marca-suave);
 border-radius:14px;
 padding:14px 10px;
 text-align:center;
@@ -179,7 +213,7 @@ text-align:center;
 .stat-numero{
 font-size:24px;
 font-weight:800;
-color:#ef4b9b;
+color:var(--color-marca);
 line-height:1;
 }
 
@@ -210,7 +244,7 @@ min-width:140px;
 display:block;
 font-size:12px;
 font-weight:700;
-color:#a15277;
+color:var(--color-marca-texto-suave);
 margin-bottom:4px;
 }
 
@@ -228,7 +262,7 @@ gap:10px;
 display:flex;
 align-items:center;
 gap:14px;
-border:2px solid #ffe3f0;
+border:2px solid var(--color-marca-suave);
 border-radius:14px;
 padding:12px 14px;
 background:#fffafc;
@@ -240,7 +274,7 @@ width:46px;
 height:46px;
 border-radius:50%;
 object-fit:cover;
-background:#ffe3f0;
+background:var(--color-marca-suave);
 flex-shrink:0;
 }
 
@@ -249,7 +283,7 @@ display:flex;
 align-items:center;
 justify-content:center;
 font-size:18px;
-color:#ef4b9b;
+color:var(--color-marca);
 }
 
 .tarjeta-item .info-principal{
@@ -330,7 +364,7 @@ overflow-y:auto;
 
 .caja-modal h3{
 font-size:16px;
-color:#ef4b9b;
+color:var(--color-marca);
 margin:0 0 14px;
 }
 
@@ -339,7 +373,7 @@ width:84px;
 height:84px;
 border-radius:50%;
 object-fit:cover;
-background:#ffe3f0;
+background:var(--color-marca-suave);
 margin:0 auto 12px;
 display:block;
 }
@@ -357,8 +391,8 @@ margin-top:10px;
 .acciones-modal .btn{ flex:1; }
 
 .aviso-kiosko{
-border:2px dashed #ffc7e2;
-background:#fff5fa;
+border:2px dashed var(--color-marca-suave3);
+background:var(--color-marca-fondo);
 }
 
 .aviso-kiosko a.btn{
@@ -377,7 +411,7 @@ min-height:100vh;
 display:flex;
 align-items:center;
 justify-content:center;
-background:linear-gradient(160deg,#fff5fa 0%,#fdf1f8 45%,#f6eefc 100%);
+background:linear-gradient(160deg,var(--color-marca-fondo) 0%,var(--color-marca-fondo2) 45%,var(--color-marca-fondo3) 100%);
 }
 
 .kiosko{
@@ -396,10 +430,17 @@ text-align:center;
 display:none;
 }
 
+.kiosko-logo{
+max-width:150px;
+max-height:76px;
+object-fit:contain;
+margin-bottom:12px;
+}
+
 .kiosko-marca{
 font-size:15px;
 font-weight:700;
-color:#c76b9c;
+color:var(--color-marca-texto-suave2);
 letter-spacing:.5px;
 margin-bottom:6px;
 }
@@ -407,7 +448,7 @@ margin-bottom:6px;
 .kiosko-titulo{
 font-size:22px;
 font-weight:800;
-color:#ef4b9b;
+color:var(--color-marca);
 margin-bottom:28px;
 }
 
@@ -415,7 +456,7 @@ margin-bottom:28px;
 width:100%;
 max-width:320px;
 background:white;
-border:3px solid #ffdcee;
+border:3px solid var(--color-marca-suave2);
 border-radius:18px;
 padding:18px 16px;
 font-size:34px;
@@ -425,7 +466,7 @@ color:#3a2e3a;
 text-align:center;
 min-height:56px;
 margin-bottom:22px;
-box-shadow:0 8px 20px rgba(190,60,130,.10);
+box-shadow:0 8px 20px rgba(0,0,0,.08);
 }
 
 .kiosko-visor.vacio{
@@ -449,7 +490,7 @@ font-size:26px;
 font-weight:700;
 color:#3a2e3a;
 background:white;
-border:2px solid #ffe3f0;
+border:2px solid var(--color-marca-suave);
 border-radius:16px;
 cursor:pointer;
 transition:background .1s ease, transform .08s ease;
@@ -457,25 +498,25 @@ font-family:inherit;
 }
 
 .tecla-numpad:active{
-background:#ffe3f0;
+background:var(--color-marca-suave);
 transform:scale(.96);
 }
 
 .tecla-numpad.tecla-confirmar{
-background:#ef4b9b;
+background:var(--color-marca);
 color:white;
-border-color:#ef4b9b;
+border-color:var(--color-marca);
 }
 
-.tecla-numpad.tecla-confirmar:active{ background:#e0245e; }
+.tecla-numpad.tecla-confirmar:active{ background:var(--color-marca-oscuro); }
 
 .tecla-numpad.tecla-borrar{
 font-size:18px;
-color:#a15277;
+color:var(--color-marca-texto-suave);
 }
 
 .kiosko-error{
-color:#e0245e;
+color:var(--color-peligro);
 font-weight:700;
 font-size:14px;
 min-height:20px;
@@ -508,9 +549,9 @@ width:150px;
 height:150px;
 border-radius:50%;
 object-fit:cover;
-background:#ffe3f0;
+background:var(--color-marca-suave);
 border:5px solid white;
-box-shadow:0 10px 26px rgba(190,60,130,.20);
+box-shadow:0 10px 26px rgba(0,0,0,.15);
 margin-bottom:20px;
 }
 
@@ -524,7 +565,7 @@ font-size:56px;
 .kiosko-bienvenida .mensaje-bienvenida{
 font-size:26px;
 font-weight:800;
-color:#ef4b9b;
+color:var(--color-marca);
 line-height:1.25;
 }
 
@@ -536,7 +577,7 @@ margin-top:8px;
 }
 
 .kiosko-bienvenida.error .mensaje-bienvenida{
-color:#e0245e;
+color:var(--color-peligro);
 font-size:22px;
 }
 

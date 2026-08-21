@@ -28,6 +28,61 @@ function escaparHtml(t) {
   return d.innerHTML;
 }
 
+// ---------------------------------------------------------------
+// PERSONALIZACIÓN (color + logo) — la elige la academia desde su
+// panel (academia.html); aquí solo se APLICA lo que ya está guardado.
+// ---------------------------------------------------------------
+function hexARgb(hex) {
+  const limpio = hex.replace("#", "");
+  return [0, 2, 4].map((i) => parseInt(limpio.substr(i, 2), 16));
+}
+
+function rgbAHex(rgb) {
+  return "#" + rgb.map((c) => Math.max(0, Math.min(255, Math.round(c))).toString(16).padStart(2, "0")).join("");
+}
+
+function mezclarConBlanco(hex, porcentaje) {
+  return rgbAHex(hexARgb(hex).map((c) => c + (255 - c) * porcentaje));
+}
+
+function oscurecer(hex, porcentaje) {
+  return rgbAHex(hexARgb(hex).map((c) => c * (1 - porcentaje)));
+}
+
+function aplicarMarca(colorMarca) {
+  const raiz = document.documentElement.style;
+
+  // Siempre se limpia primero: si esta tablet/navegador ya había
+  // aplicado el color de OTRA academia (por ejemplo, alguien salió e
+  // inició sesión con una cuenta distinta), no debe quedarse pegado.
+  ["--color-marca", "--color-marca-oscuro", "--color-marca-suave", "--color-marca-suave2",
+    "--color-marca-suave3", "--color-marca-fondo", "--color-marca-fondo2", "--color-marca-fondo3",
+    "--color-marca-texto-suave", "--color-marca-texto-suave2"].forEach((v) => raiz.removeProperty(v));
+
+  if (!colorMarca || !/^#[0-9a-fA-F]{6}$/.test(colorMarca)) return;
+
+  raiz.setProperty("--color-marca", colorMarca);
+  raiz.setProperty("--color-marca-oscuro", oscurecer(colorMarca, 0.15));
+  raiz.setProperty("--color-marca-suave", mezclarConBlanco(colorMarca, 0.88));
+  raiz.setProperty("--color-marca-suave2", mezclarConBlanco(colorMarca, 0.82));
+  raiz.setProperty("--color-marca-suave3", mezclarConBlanco(colorMarca, 0.75));
+  raiz.setProperty("--color-marca-fondo", mezclarConBlanco(colorMarca, 0.96));
+  raiz.setProperty("--color-marca-fondo2", mezclarConBlanco(colorMarca, 0.94));
+  raiz.setProperty("--color-marca-fondo3", mezclarConBlanco(colorMarca, 0.92));
+  raiz.setProperty("--color-marca-texto-suave", oscurecer(colorMarca, 0.25));
+  raiz.setProperty("--color-marca-texto-suave2", oscurecer(colorMarca, 0.1));
+}
+
+function aplicarLogoKiosko(logoKey) {
+  const img = el("logoKiosko");
+  if (logoKey) {
+    img.src = urlFoto(logoKey);
+    img.hidden = false;
+  } else {
+    img.hidden = true;
+  }
+}
+
 async function llamar(accion, datos) {
   const resp = await fetch(API_URL, {
     method: "POST",
@@ -59,6 +114,8 @@ function mostrarTeclado() {
   el("pantallaResultado").hidden = true;
   el("pantallaTeclado").hidden = false;
   el("marcaAcademiaKiosko").textContent = sesion.nombre;
+  aplicarMarca(sesion.colorMarca);
+  aplicarLogoKiosko(sesion.logoKey);
   reiniciarCodigo();
 }
 
@@ -81,7 +138,13 @@ async function intentarEntrar() {
       el("mensajeErrorLogin").textContent = r.error || "No se pudo entrar.";
       return;
     }
-    guardarSesion({ academiaId: r.academiaId, clave, nombre: r.nombre });
+    guardarSesion({
+      academiaId: r.academiaId,
+      clave,
+      nombre: r.nombre,
+      colorMarca: r.colorMarca || null,
+      logoKey: r.logoKey || null,
+    });
     mostrarTeclado();
   } catch (e) {
     el("mensajeErrorLogin").textContent = "No se pudo conectar. Revisa tu conexión e inténtalo de nuevo.";
@@ -100,6 +163,8 @@ el("btnSalirKiosko").addEventListener("click", () => {
   localStorage.removeItem("biometrico_sesion_kiosko");
   el("pantallaTeclado").hidden = true;
   el("pantallaLogin").hidden = false;
+  aplicarMarca(null);
+  aplicarLogoKiosko(null);
   el("inputNombreAcademia").value = "";
   el("inputClaveAcademia").value = "";
 });

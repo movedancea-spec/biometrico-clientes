@@ -25,7 +25,10 @@
 <div class="contenedor" id="pantallaPanel" hidden>
 
   <div class="barra-superior">
-    <h1 id="tituloAcademia">📋 Administración de la Academia</h1>
+    <div class="titulo-con-logo">
+      <img class="logo-marca" id="logoAcademia" src="" alt="" hidden />
+      <h1 id="tituloAcademia">📋 Administración de la Academia</h1>
+    </div>
     <div style="display:flex; align-items:center; gap:10px;">
       <span class="info-cuenta" id="infoLimiteAlumnas"></span>
       <button class="btn secundario chico" id="btnSalirAcademia">Salir</button>
@@ -36,6 +39,26 @@
     <h2>📟 ¿Buscas la pantalla para marcar entradas?</h2>
     <p class="ayuda" style="margin-bottom:12px;">Esta página es solo para administrar alumnas (agregar, editar, borrar). Para la pantalla de la tablet donde las alumnas ingresan su código, se muestra su foto y un mensaje de bienvenida, usa <strong>biometrico.html</strong> — esa la dejas abierta en la entrada, aparte de esta.</p>
     <a class="btn secundario chico" href="biometrico.html" target="_blank" rel="noopener">Abrir pantalla de código (biométrico) →</a>
+  </div>
+
+  <!-- -------- Personalizar (logo y color) -------- -->
+  <div class="panel">
+    <h2>🎨 Personalizar tu panel</h2>
+    <p class="ayuda">El color y el logo que elijas aquí se aplican tanto a esta página como a la pantalla de código (biometrico.html).</p>
+    <div class="fila-formulario" style="align-items:center;">
+      <div style="flex:0 0 auto;">
+        <label>Color principal</label>
+        <input type="color" id="inputColorMarca" value="#ef4b9b" style="width:64px; height:44px; padding:4px; cursor:pointer;" />
+      </div>
+      <div>
+        <label>Tu logo (opcional)</label>
+        <input type="file" id="inputLogoMarca" accept="image/*" />
+      </div>
+    </div>
+    <img class="foto-preview" id="logoPreviewPersonalizar" src="" alt="" hidden style="border-radius:8px; background:#f2f2f2;" />
+    <button class="btn" id="btnGuardarMarca" style="margin-top:6px;">Guardar personalización</button>
+    <p class="mensaje-error" id="mensajeErrorMarca"></p>
+    <p class="mensaje-exito" id="mensajeExitoMarca"></p>
   </div>
 
   <!-- -------- Agregar alumna -------- -->

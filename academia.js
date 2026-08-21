@@ -42,6 +42,63 @@ function leerArchivoComoBase64(archivo) {
 }
 
 // ---------------------------------------------------------------
+// PERSONALIZACIÓN (color + logo) — se aplica con variables CSS, así
+// que un solo color elegido por la academia recolorea todo el panel
+// (y, con el mismo mecanismo, biometrico.js recolorea la pantalla de
+// la tablet). Ver biometrico-style.css para las variables --color-*.
+// ---------------------------------------------------------------
+function hexARgb(hex) {
+  const limpio = hex.replace("#", "");
+  return [0, 2, 4].map((i) => parseInt(limpio.substr(i, 2), 16));
+}
+
+function rgbAHex(rgb) {
+  return "#" + rgb.map((c) => Math.max(0, Math.min(255, Math.round(c))).toString(16).padStart(2, "0")).join("");
+}
+
+function mezclarConBlanco(hex, porcentaje) {
+  return rgbAHex(hexARgb(hex).map((c) => c + (255 - c) * porcentaje));
+}
+
+function oscurecer(hex, porcentaje) {
+  return rgbAHex(hexARgb(hex).map((c) => c * (1 - porcentaje)));
+}
+
+function aplicarMarca(colorMarca) {
+  const raiz = document.documentElement.style;
+
+  // Siempre se limpia primero: si este navegador ya había aplicado el
+  // color de OTRA academia (por ejemplo, alguien salió e inició sesión
+  // con una cuenta distinta), no debe quedarse pegado.
+  ["--color-marca", "--color-marca-oscuro", "--color-marca-suave", "--color-marca-suave2",
+    "--color-marca-suave3", "--color-marca-fondo", "--color-marca-fondo2", "--color-marca-fondo3",
+    "--color-marca-texto-suave", "--color-marca-texto-suave2"].forEach((v) => raiz.removeProperty(v));
+
+  if (!colorMarca || !/^#[0-9a-fA-F]{6}$/.test(colorMarca)) return;
+
+  raiz.setProperty("--color-marca", colorMarca);
+  raiz.setProperty("--color-marca-oscuro", oscurecer(colorMarca, 0.15));
+  raiz.setProperty("--color-marca-suave", mezclarConBlanco(colorMarca, 0.88));
+  raiz.setProperty("--color-marca-suave2", mezclarConBlanco(colorMarca, 0.82));
+  raiz.setProperty("--color-marca-suave3", mezclarConBlanco(colorMarca, 0.75));
+  raiz.setProperty("--color-marca-fondo", mezclarConBlanco(colorMarca, 0.96));
+  raiz.setProperty("--color-marca-fondo2", mezclarConBlanco(colorMarca, 0.94));
+  raiz.setProperty("--color-marca-fondo3", mezclarConBlanco(colorMarca, 0.92));
+  raiz.setProperty("--color-marca-texto-suave", oscurecer(colorMarca, 0.25));
+  raiz.setProperty("--color-marca-texto-suave2", oscurecer(colorMarca, 0.1));
+}
+
+function aplicarLogoEnHeader(logoKey) {
+  const img = el("logoAcademia");
+  if (logoKey) {
+    img.src = urlFoto(logoKey);
+    img.hidden = false;
+  } else {
+    img.hidden = true;
+  }
+}
+
+// ---------------------------------------------------------------
 // LOGIN / SESIÓN
 // ---------------------------------------------------------------
 function guardarSesion(s) {
@@ -63,6 +120,9 @@ function mostrarPanel() {
   el("pantallaLogin").hidden = true;
   el("pantallaPanel").hidden = false;
   el("tituloAcademia").textContent = `📋 ${sesion.nombre}`;
+  aplicarMarca(sesion.colorMarca);
+  aplicarLogoEnHeader(sesion.logoKey);
+  el("inputColorMarca").value = sesion.colorMarca || "#ef4b9b";
   cargarAlumnas();
 }
 
@@ -71,6 +131,8 @@ function volverALogin(mensaje) {
   localStorage.removeItem("biometrico_sesion_academia");
   el("pantallaPanel").hidden = true;
   el("pantallaLogin").hidden = false;
+  aplicarMarca(null);
+  aplicarLogoEnHeader(null);
   if (mensaje) el("mensajeErrorLogin").textContent = mensaje;
 }
 
@@ -93,7 +155,14 @@ async function intentarEntrar() {
       el("mensajeErrorLogin").textContent = r.error || "No se pudo entrar.";
       return;
     }
-    guardarSesion({ academiaId: r.academiaId, clave, nombre: r.nombre, limiteAlumnas: r.limiteAlumnas });
+    guardarSesion({
+      academiaId: r.academiaId,
+      clave,
+      nombre: r.nombre,
+      limiteAlumnas: r.limiteAlumnas,
+      colorMarca: r.colorMarca || null,
+      logoKey: r.logoKey || null,
+    });
     mostrarPanel();
   } catch (e) {
     el("mensajeErrorLogin").textContent = "No se pudo conectar. Revisa tu conexión e inténtalo de nuevo.";
@@ -265,6 +334,70 @@ el("btnBorrarAlumna").addEventListener("click", async () => {
 // aquí — vive aparte, en biometrico.html/biometrico.js, pensada para
 // quedarse abierta en una tablet en la entrada. Esta página
 // (academia.html) es solo para administrar alumnas.
+
+// ---------------------------------------------------------------
+// GUARDAR PERSONALIZACIÓN (color + logo)
+// ---------------------------------------------------------------
+
+// Vista previa en vivo del color mientras lo eligen, antes de guardar.
+el("inputColorMarca").addEventListener("input", () => {
+  aplicarMarca(el("inputColorMarca").value);
+});
+
+el("inputLogoMarca").addEventListener("change", async () => {
+  const archivo = el("inputLogoMarca").files[0] || null;
+  const preview = el("logoPreviewPersonalizar");
+  if (!archivo) { preview.hidden = true; return; }
+  const dataUrl = await leerArchivoComoBase64(archivo);
+  preview.src = dataUrl;
+  preview.hidden = false;
+});
+
+el("btnGuardarMarca").addEventListener("click", async () => {
+  const color = el("inputColorMarca").value;
+  const archivo = el("inputLogoMarca").files[0] || null;
+
+  el("mensajeErrorMarca").textContent = "";
+  el("mensajeExitoMarca").textContent = "";
+  el("btnGuardarMarca").disabled = true;
+
+  try {
+    const logoBase64 = await leerArchivoComoBase64(archivo);
+    const r = await llamar("academiaActualizarMarca", {
+      colorMarca: color,
+      ...(logoBase64 ? { logoBase64 } : {}),
+    });
+    if (!r.success) { el("mensajeErrorMarca").textContent = r.error || "No se pudo guardar."; return; }
+
+    // Vuelve a pedir los datos de sesión para tener la key real del
+    // logo que asignó el servidor (así queda bien guardada y se ve
+    // igual la próxima vez que entren, sin tener que adivinarla aquí).
+    try {
+      const resp = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accion: "academiaLogin", nombre: sesion.nombre, clave: sesion.clave }),
+      });
+      const refresco = await resp.json();
+      if (refresco.success) {
+        sesion.colorMarca = refresco.colorMarca || null;
+        sesion.logoKey = refresco.logoKey || null;
+        aplicarLogoEnHeader(sesion.logoKey);
+      }
+    } catch (e) {
+      // Si esto falla no pasa nada grave — el color ya se aplicó en
+      // pantalla, y el logo se refresca solo la próxima vez que entren.
+    }
+    guardarSesion(sesion);
+    el("mensajeExitoMarca").textContent = "¡Personalización guardada!";
+    el("inputLogoMarca").value = "";
+    el("logoPreviewPersonalizar").hidden = true;
+  } catch (e) {
+    el("mensajeErrorMarca").textContent = "No se pudo conectar. Inténtalo de nuevo.";
+  } finally {
+    el("btnGuardarMarca").disabled = false;
+  }
+});
 
 // ---------------------------------------------------------------
 // INICIO — si ya había sesión guardada, entra directo
