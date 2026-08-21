@@ -162,6 +162,7 @@ function mostrarPanel() {
   el("inputColorMarca").value = sesion.colorMarca || "#ef4b9b";
   el("inputEmailCuenta").value = sesion.email || "";
   cargarAlumnas();
+  cargarMensualidad();
 }
 
 function volverALogin(mensaje) {
@@ -388,13 +389,100 @@ el("btnCambiarClave").addEventListener("click", async () => {
 async function cargarAlumnas() {
   try {
     const r = await llamar("academiaListarAlumnas", {});
-    if (!r.success) { volverALogin(r.error || "Tu sesión ya no es válida, vuelve a entrar."); return; }
+    if (!r.success) {
+      if (r.bloqueadaPorPago) {
+        // Sigue con la sesión iniciada (NO se manda a volverALogin) —
+        // así puede quedarse viendo la pantalla y usar "💳 Mensualidad"
+        // para pagar y desbloquearse sola.
+        el("listaAlumnas").innerHTML =
+          '<p class="lista-vacia">Tu academia está desactivada por falta de pago de la mensualidad. Ve a "💳 Mensualidad" arriba para ponerte al día.</p>';
+        el("infoLimiteAlumnas").textContent = "Cuenta desactivada";
+        el("btnCrearAlumna").disabled = true;
+        return;
+      }
+      volverALogin(r.error || "Tu sesión ya no es válida, vuelve a entrar.");
+      return;
+    }
     sesion.limiteAlumnas = r.limiteAlumnas;
     pintarAlumnas(r.alumnas, r.cantidadAlumnas, r.limiteAlumnas);
   } catch (e) {
     el("listaAlumnas").innerHTML = '<p class="lista-vacia">No se pudo cargar la lista. Revisa tu conexión.</p>';
   }
 }
+
+// ---------------------------------------------------------------
+// MENSUALIDAD — estado del cobro del mes y botón para generar el
+// link de pago de Paggo. A propósito NO depende de que la academia
+// esté al día (por eso el servidor usa verificarAcademiaSoloActiva
+// para estas dos acciones) — así siempre puede pagar y desbloquearse.
+// ---------------------------------------------------------------
+async function cargarMensualidad() {
+  try {
+    const r = await llamar("academiaConsultarPago", {});
+    if (!r.success) {
+      el("mensualidadTextoAyuda").textContent = r.error || "No se pudo consultar tu mensualidad.";
+      return;
+    }
+    pintarMensualidad(r);
+  } catch (e) {
+    el("mensualidadTextoAyuda").textContent = "No se pudo consultar tu mensualidad. Revisa tu conexión.";
+  }
+}
+
+function pintarMensualidad(r) {
+  el("mensajeErrorMensualidad").textContent = "";
+  el("mensajeExitoMensualidad").textContent = "";
+
+  if (r.estadoMes === "pagado") {
+    el("mensualidadTextoAyuda").textContent = `Tu mensualidad de este mes (${r.mes}) ya está pagada. ¡Gracias!`;
+    el("mensualidadEstadoTexto").textContent = "✅ Al día";
+    el("mensualidadEstadoTexto").style.color = "#1a9c5c";
+    el("btnGenerarLinkPago").hidden = true;
+    el("enlaceLinkPago").hidden = true;
+    return;
+  }
+
+  el("mensualidadEstadoTexto").style.color = r.pagoAlDia ? "inherit" : "#d0304c";
+  el("mensualidadEstadoTexto").textContent = r.pagoAlDia
+    ? "⏳ Pendiente de pago"
+    : "🚫 Cuenta desactivada por falta de pago";
+  el("mensualidadTextoAyuda").textContent = r.mensualidad
+    ? `Tu mensualidad de ${r.mes} es de Q${Number(r.mensualidad).toFixed(2)}. Genera tu link y págalo con tarjeta.`
+    : "Todavía no tienes una mensualidad asignada — pídele al administrador del sistema que te la configure.";
+
+  el("btnGenerarLinkPago").hidden = !r.mensualidad;
+  if (r.link) {
+    el("enlaceLinkPago").href = r.link;
+    el("enlaceLinkPago").hidden = false;
+  } else {
+    el("enlaceLinkPago").hidden = true;
+  }
+}
+
+el("btnGenerarLinkPago").addEventListener("click", async () => {
+  el("mensajeErrorMensualidad").textContent = "";
+  el("mensajeExitoMensualidad").textContent = "";
+  el("btnGenerarLinkPago").disabled = true;
+  el("btnGenerarLinkPago").textContent = "Generando link...";
+
+  try {
+    const r = await llamar("academiaGenerarLinkPago", {});
+    if (!r.success) { el("mensajeErrorMensualidad").textContent = r.error || "No se pudo generar el link de pago."; return; }
+    if (r.estadoMes === "pagado") {
+      el("mensajeExitoMensualidad").textContent = "Este mes ya estaba pagado.";
+      cargarMensualidad();
+      return;
+    }
+    el("enlaceLinkPago").href = r.link;
+    el("enlaceLinkPago").hidden = false;
+    el("mensajeExitoMensualidad").textContent = "¡Listo! Dale clic a \"Pagar ahora\" para completar el pago con tarjeta.";
+  } catch (e) {
+    el("mensajeErrorMensualidad").textContent = "No se pudo conectar. Inténtalo de nuevo.";
+  } finally {
+    el("btnGenerarLinkPago").disabled = false;
+    el("btnGenerarLinkPago").textContent = "Generar link de pago";
+  }
+});
 
 function pintarAlumnas(alumnas, cantidad, limite) {
   el("infoLimiteAlumnas").textContent = `${cantidad} / ${limite} alumnas`;

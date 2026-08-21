@@ -105,6 +105,8 @@ function pintarAcademias(academias) {
         <div class="detalle-item">
           <span class="etiqueta-estado ${a.activo ? "activa" : "inactiva"}">${a.activo ? "Activa" : "Desactivada"}</span>
           &nbsp;·&nbsp; ${a.cantidadAlumnas} / ${a.limite_alumnas} alumnas
+          &nbsp;·&nbsp; Q${Number(a.mensualidad || 0).toFixed(2)}/mes
+          &nbsp;·&nbsp; <span class="etiqueta-estado ${a.pago_al_dia ? "activa" : "inactiva"}">${a.pago_al_dia ? "Al día" : "Debe mensualidad"}</span>
         </div>
       </div>
       <div class="acciones-item">
@@ -155,9 +157,26 @@ function abrirModalEditarAcademia(academia) {
   el("inputEditarClaveAcademia").value = "";
   el("inputEditarLimite").value = academia.limite_alumnas;
   el("inputEditarEmailAcademia").value = academia.email || "";
+  el("inputEditarMensualidad").value = academia.mensualidad || 0;
+  el("textoEstadoPagoAcademia").textContent = academia.pago_al_dia
+    ? "Este mes está al día."
+    : "Debe la mensualidad de este mes (o de un mes anterior).";
   el("mensajeErrorEditarAcademia").textContent = "";
   el("modalEditarAcademia").hidden = false;
 }
+
+el("btnMarcarPagadoManual").addEventListener("click", async () => {
+  if (!window.confirm(`¿Marcar a "${academiaEditandoNombre}" como al día, aunque no haya llegado el pago por Paggo (por ejemplo, si te pagó en efectivo o transferencia)?`)) return;
+
+  try {
+    const r = await llamar("duenoActualizarAcademia", { claveDueno, academiaId: academiaEditandoId, pagoAlDia: true });
+    if (!r.success) { alert(r.error || "No se pudo actualizar."); return; }
+    el("textoEstadoPagoAcademia").textContent = "Este mes está al día.";
+    cargarAcademias();
+  } catch (e) {
+    alert("No se pudo conectar. Inténtalo de nuevo.");
+  }
+});
 
 el("btnCancelarEditarAcademia").addEventListener("click", () => { el("modalEditarAcademia").hidden = true; });
 
@@ -166,12 +185,14 @@ el("btnGuardarEditarAcademia").addEventListener("click", async () => {
   const claveNueva = el("inputEditarClaveAcademia").value.trim();
   const nuevoLimite = Number(el("inputEditarLimite").value);
   const email = el("inputEditarEmailAcademia").value.trim();
+  const mensualidad = Number(el("inputEditarMensualidad").value) || 0;
 
   el("mensajeErrorEditarAcademia").textContent = "";
 
   if (!nombre) { el("mensajeErrorEditarAcademia").textContent = "El nombre no puede quedar vacío."; return; }
   if (!nuevoLimite || nuevoLimite < 1) { el("mensajeErrorEditarAcademia").textContent = "Escribe un límite de alumnas válido."; return; }
   if (claveNueva && claveNueva.length < 4) { el("mensajeErrorEditarAcademia").textContent = "La contraseña nueva debe tener al menos 4 caracteres."; return; }
+  if (mensualidad < 0) { el("mensajeErrorEditarAcademia").textContent = "La mensualidad no puede ser negativa."; return; }
 
   el("btnGuardarEditarAcademia").disabled = true;
   try {
@@ -181,6 +202,7 @@ el("btnGuardarEditarAcademia").addEventListener("click", async () => {
       nombre,
       limite: nuevoLimite,
       email,
+      mensualidad,
       ...(claveNueva ? { clave: claveNueva } : {}),
     });
     if (!r.success) { el("mensajeErrorEditarAcademia").textContent = r.error || "No se pudo guardar."; return; }
@@ -214,6 +236,7 @@ el("btnCrearAcademia").addEventListener("click", async () => {
   const clave = el("inputNuevaAcademiaClave").value.trim();
   const limite = Number(el("inputNuevaAcademiaLimite").value) || 150;
   const email = el("inputNuevaAcademiaEmail").value.trim();
+  const mensualidad = Number(el("inputNuevaAcademiaMensualidad").value) || 0;
 
   el("mensajeErrorCrear").textContent = "";
   el("mensajeExitoCrear").textContent = "";
@@ -223,13 +246,14 @@ el("btnCrearAcademia").addEventListener("click", async () => {
 
   el("btnCrearAcademia").disabled = true;
   try {
-    const r = await llamar("duenoCrearAcademia", { claveDueno, nombre, clave, limite, email });
+    const r = await llamar("duenoCrearAcademia", { claveDueno, nombre, clave, limite, email, mensualidad });
     if (!r.success) { el("mensajeErrorCrear").textContent = r.error || "No se pudo crear."; return; }
     el("mensajeExitoCrear").textContent = `Academia "${nombre}" creada. Avísales el nombre y la contraseña para que entren a su panel.`;
     el("inputNuevaAcademiaNombre").value = "";
     el("inputNuevaAcademiaClave").value = "";
     el("inputNuevaAcademiaLimite").value = "150";
     el("inputNuevaAcademiaEmail").value = "";
+    el("inputNuevaAcademiaMensualidad").value = "";
     cargarAcademias();
   } catch (e) {
     el("mensajeErrorCrear").textContent = "No se pudo conectar. Inténtalo de nuevo.";
