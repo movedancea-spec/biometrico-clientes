@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Biométrico — Panel de la Academia</title>
+<title>Biométrico — Administración de la Academia</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap" rel="stylesheet" />
@@ -13,7 +13,7 @@
 
 <!-- ============ LOGIN ============ -->
 <div class="tarjeta-login" id="pantallaLogin">
-  <h1>📋 Panel de Asistencia</h1>
+  <h1>📋 Administración de la Academia</h1>
   <p class="subtitulo">Entra con el nombre y la contraseña que te dieron.</p>
   <input type="text" id="inputNombreAcademia" placeholder="Nombre de tu academia" autocomplete="off" />
   <input type="password" id="inputClaveAcademia" placeholder="Contraseña" autocomplete="off" />
@@ -25,25 +25,17 @@
 <div class="contenedor" id="pantallaPanel" hidden>
 
   <div class="barra-superior">
-    <h1 id="tituloAcademia">📋 Panel de Asistencia</h1>
+    <h1 id="tituloAcademia">📋 Administración de la Academia</h1>
     <div style="display:flex; align-items:center; gap:10px;">
       <span class="info-cuenta" id="infoLimiteAlumnas"></span>
       <button class="btn secundario chico" id="btnSalirAcademia">Salir</button>
     </div>
   </div>
 
-  <!-- -------- Marcar asistencia -------- -->
-  <div class="panel">
-    <h2>✅ Marcar asistencia</h2>
-    <p class="ayuda">Escribe el código de la alumna (el mismo que reconoce el lector de huella) y presiona Marcar.</p>
-    <div class="fila-formulario">
-      <div>
-        <label>Código de la alumna</label>
-        <input type="number" id="inputCodigoAsistencia" placeholder="Ej: 12" />
-      </div>
-      <button class="btn" id="btnMarcarAsistencia" style="flex:0 0 auto; width:auto; padding:12px 22px;">Marcar</button>
-    </div>
-    <div id="resultadoAsistencia"></div>
+  <div class="panel aviso-kiosko">
+    <h2>📟 ¿Buscas la pantalla para marcar entradas?</h2>
+    <p class="ayuda" style="margin-bottom:12px;">Esta página es solo para administrar alumnas (agregar, editar, borrar). Para la pantalla de la tablet donde las alumnas ingresan su código, se muestra su foto y un mensaje de bienvenida, usa <strong>biometrico.html</strong> — esa la dejas abierta en la entrada, aparte de esta.</p>
+    <a class="btn secundario chico" href="biometrico.html" target="_blank" rel="noopener">Abrir pantalla de código (biométrico) →</a>
   </div>
 
   <!-- -------- Agregar alumna -------- -->

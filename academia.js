@@ -261,42 +261,10 @@ el("btnBorrarAlumna").addEventListener("click", async () => {
   }
 });
 
-// ---------------------------------------------------------------
-// MARCAR ASISTENCIA
-// ---------------------------------------------------------------
-async function marcarAsistencia() {
-  const codigo = Number(el("inputCodigoAsistencia").value);
-  const resultadoDiv = el("resultadoAsistencia");
-  if (!codigo) return;
-
-  el("btnMarcarAsistencia").disabled = true;
-  try {
-    const r = await llamar("academiaMarcarAsistencia", { codigo, metodo: "Codigo" });
-    if (!r.success) {
-      resultadoDiv.innerHTML = `<div class="resultado-asistencia error"><div class="detalle-resultado">❌ ${escaparHtml(r.error || "No se pudo marcar la asistencia.")}</div></div>`;
-      return;
-    }
-    const foto = r.alumna.fotoKey
-      ? `<img class="foto-preview" src="${urlFoto(r.alumna.fotoKey)}" alt="" />`
-      : "";
-    resultadoDiv.innerHTML = `
-      <div class="resultado-asistencia exito">
-        ${foto}
-        <div class="nombre-resultado">✅ ${escaparHtml(r.alumna.nombre)} (#${r.alumna.codigo})</div>
-        <div class="detalle-resultado">Asistencia marcada — ${r.clasesEsteMes} / ${r.clasesPorMes} clases este mes.</div>
-      </div>
-    `;
-    el("inputCodigoAsistencia").value = "";
-    cargarAlumnas();
-  } catch (e) {
-    resultadoDiv.innerHTML = `<div class="resultado-asistencia error"><div class="detalle-resultado">No se pudo conectar. Inténtalo de nuevo.</div></div>`;
-  } finally {
-    el("btnMarcarAsistencia").disabled = false;
-  }
-}
-
-el("btnMarcarAsistencia").addEventListener("click", marcarAsistencia);
-el("inputCodigoAsistencia").addEventListener("keydown", (e) => { if (e.key === "Enter") marcarAsistencia(); });
+// NOTA: marcar asistencia (la pantalla de "meter el código") ya NO vive
+// aquí — vive aparte, en biometrico.html/biometrico.js, pensada para
+// quedarse abierta en una tablet en la entrada. Esta página
+// (academia.html) es solo para administrar alumnas.
 
 // ---------------------------------------------------------------
 // INICIO — si ya había sesión guardada, entra directo
