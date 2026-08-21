@@ -4,7 +4,7 @@
 // IMPORTANTE: cambia esta URL por la de TU Worker una vez que lo hayas
 // publicado en Cloudflare (Settings → Domains and Routes, o la URL
 // "*.workers.dev" que te da por defecto). Debe terminar SIN "/" al final.
-const API_URL = "https://TU-WORKER-BIOMETRICO.workers.dev";
+const API_URL = "https://biometrico-saas.movedancea.workers.dev";
 
 const el = (id) => document.getElementById(id);
 

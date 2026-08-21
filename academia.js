@@ -4,7 +4,7 @@
 // IMPORTANTE: cambia esta URL por la de TU Worker una vez publicado en
 // Cloudflare — debe ser la MISMA URL que pusiste en dueno.js. Sin "/"
 // al final.
-const API_URL = "https://TU-WORKER-BIOMETRICO.workers.dev";
+const API_URL = "https://biometrico-saas.movedancea.workers.dev";
 
 const el = (id) => document.getElementById(id);
 
