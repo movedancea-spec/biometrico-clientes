@@ -289,7 +289,9 @@ el("btnCrearAlumna").addEventListener("click", async () => {
       el("mensajeErrorCrear").textContent = r.error || "No se pudo agregar.";
       return;
     }
-    el("mensajeExitoCrear").textContent = `"${nombre}" agregada con el código #${r.codigo}.`;
+    el("mensajeExitoCrear").textContent = r.advertenciaFoto
+      ? `"${nombre}" agregada con el código #${r.codigo}. ⚠️ ${r.advertenciaFoto}`
+      : `"${nombre}" agregada con el código #${r.codigo}.`;
     el("inputNuevaAlumnaNombre").value = "";
     el("inputNuevaAlumnaClases").value = "8";
     el("inputNuevaAlumnaFoto").value = "";
@@ -344,6 +346,14 @@ el("btnGuardarEditar").addEventListener("click", async () => {
       ...(fotoBase64 ? { fotoBase64 } : {}),
     });
     if (!r.success) { el("mensajeErrorEditar").textContent = r.error || "No se pudo guardar."; return; }
+    if (r.advertenciaFoto) {
+      // Se deja el modal abierto (en vez de cerrarlo de una vez) para
+      // que se alcance a leer el aviso — si no, "se guarda pero no se
+      // ve la foto" y nadie se entera de por qué.
+      el("mensajeErrorEditar").textContent = "⚠️ " + r.advertenciaFoto;
+      cargarAlumnas();
+      return;
+    }
     el("modalAlumna").hidden = true;
     cargarAlumnas();
   } catch (e) {
