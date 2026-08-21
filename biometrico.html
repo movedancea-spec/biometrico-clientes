@@ -3,11 +3,14 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+<meta http-equiv="Pragma" content="no-cache" />
+<meta http-equiv="Expires" content="0" />
 <title>Biométrico — Marcar Entrada</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="biometrico-style.css" />
+<link rel="stylesheet" href="biometrico-style.css?v=20260821" />
 </head>
 <body>
 
@@ -49,11 +52,20 @@
   <button class="kiosko-salir" id="btnSalirKiosko">Salir de esta tablet</button>
 </div>
 
+<!-- ============ KIOSKO: confirmar que es la alumna correcta, antes de marcar ============ -->
+<div class="kiosko" id="pantallaConfirmacion" hidden>
+  <div id="contenidoConfirmacion"></div>
+  <div class="kiosko-botones-confirmacion">
+    <button class="tecla-numpad" id="btnNoSoyYo">✗ No, corregir</button>
+    <button class="tecla-numpad tecla-confirmar" id="btnSiSoyYo">✓ Sí, entrar</button>
+  </div>
+</div>
+
 <!-- ============ KIOSKO: resultado (foto + bienvenida) ============ -->
 <div class="kiosko" id="pantallaResultado" hidden>
   <div id="contenidoResultado"></div>
 </div>
 
-<script src="biometrico.js"></script>
+<script src="biometrico.js?v=20260821"></script>
 </body>
 </html>

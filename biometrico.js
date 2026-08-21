@@ -117,6 +117,59 @@ function mostrarTeclado() {
   aplicarMarca(sesion.colorMarca);
   aplicarLogoKiosko(sesion.logoKey);
   reiniciarCodigo();
+  iniciarActualizacionAutomaticaDeMarca();
+}
+
+// ---------------------------------------------------------------
+// ACTUALIZACIÓN AUTOMÁTICA DE COLOR/LOGO (sin salir e iniciar sesión)
+// ---------------------------------------------------------------
+// Como esta tablet se queda con la sesión guardada por días o semanas,
+// si la academia cambia su color o logo desde OTRO dispositivo (su
+// celular, su computadora), esta tablet nunca se entera por sí sola —
+// se queda con lo que tenía guardado. Para que "se actualice sola",
+// cada cierto tiempo se vuelve a preguntar al servidor en silencio
+// (sin mostrar nada en pantalla) si hay un color/logo más reciente, y
+// si lo hay, se aplica de inmediato sin interrumpir a quien esté
+// usando el teclado.
+const INTERVALO_ACTUALIZACION_MARCA_MS = 3 * 60 * 1000; // cada 3 minutos
+let temporizadorActualizacionMarca = null;
+
+async function refrescarMarcaEnSilencio() {
+  if (!sesion || !sesion.nombre || !sesion.clave) return;
+  try {
+    const resp = await fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ accion: "academiaLogin", nombre: sesion.nombre, clave: sesion.clave }),
+    });
+    const r = await resp.json();
+    if (!r.success) return; // si falla (ej. desactivada), no se interrumpe el kiosko por esto
+    const colorNuevo = r.colorMarca || null;
+    const logoNuevo = r.logoKey || null;
+    if (colorNuevo !== sesion.colorMarca || logoNuevo !== sesion.logoKey) {
+      sesion.colorMarca = colorNuevo;
+      sesion.logoKey = logoNuevo;
+      guardarSesion(sesion);
+      aplicarMarca(sesion.colorMarca);
+      aplicarLogoKiosko(sesion.logoKey);
+    }
+  } catch (e) {
+    // Sin conexión momentánea: no pasa nada, se vuelve a intentar en el siguiente ciclo.
+  }
+}
+
+function iniciarActualizacionAutomaticaDeMarca() {
+  if (temporizadorActualizacionMarca) return; // ya está corriendo, no duplicar
+  temporizadorActualizacionMarca = setInterval(refrescarMarcaEnSilencio, INTERVALO_ACTUALIZACION_MARCA_MS);
+  // Además de esperar el primer intervalo, se hace un primer chequeo
+  // pronto después de entrar, por si el cambio de color ya se había
+  // hecho antes de prender la tablet ese día.
+  setTimeout(refrescarMarcaEnSilencio, 15000);
+}
+
+function detenerActualizacionAutomaticaDeMarca() {
+  clearInterval(temporizadorActualizacionMarca);
+  temporizadorActualizacionMarca = null;
 }
 
 async function intentarEntrar() {
@@ -207,38 +260,113 @@ document.querySelectorAll(".tecla-numpad[data-tecla]").forEach((btn) => {
   btn.addEventListener("click", () => agregarDigito(btn.dataset.tecla));
 });
 el("btnBorrarDigito").addEventListener("click", borrarDigito);
-el("btnConfirmarCodigo").addEventListener("click", confirmarCodigo);
+el("btnConfirmarCodigo").addEventListener("click", buscarAlumnaParaConfirmar);
+el("btnSiSoyYo").addEventListener("click", confirmarEntradaFinal);
+el("btnNoSoyYo").addEventListener("click", cancelarConfirmacion);
 
 // También acepta un teclado físico, por si la tablet tiene uno conectado.
 document.addEventListener("keydown", (e) => {
-  if (el("pantallaTeclado").hidden) return;
-  if (e.key >= "0" && e.key <= "9") agregarDigito(e.key);
-  else if (e.key === "Backspace") borrarDigito();
-  else if (e.key === "Enter") confirmarCodigo();
+  if (!el("pantallaTeclado").hidden) {
+    if (e.key >= "0" && e.key <= "9") agregarDigito(e.key);
+    else if (e.key === "Backspace") borrarDigito();
+    else if (e.key === "Enter") buscarAlumnaParaConfirmar();
+  } else if (!el("pantallaConfirmacion").hidden) {
+    if (e.key === "Enter") confirmarEntradaFinal();
+    else if (e.key === "Escape") cancelarConfirmacion();
+  }
 });
 
 // ---------------------------------------------------------------
-// MARCAR ASISTENCIA
+// MARCAR ASISTENCIA (primero se busca y se confirma, luego se marca)
 // ---------------------------------------------------------------
-async function confirmarCodigo() {
+// El flujo tiene dos pasos a propósito: 1) se busca el código y se
+// muestra la foto y el nombre de la alumna para que confirme que sí
+// es ella, y 2) solo al darle "Sí, entrar" se marca la asistencia de
+// verdad. Así, si alguien teclea mal el código y por casualidad cae
+// en el código de otra alumna, no se marca su entrada por error — se
+// ve el nombre equivocado y se puede corregir antes de confirmar.
+let codigoPendienteConfirmacion = null;
+let timeoutConfirmacion = null;
+
+async function buscarAlumnaParaConfirmar() {
   if (!codigoActual) return;
   const codigo = Number(codigoActual);
   el("btnConfirmarCodigo").disabled = true;
 
   try {
-    const r = await llamar("academiaMarcarAsistencia", { codigo, metodo: "Codigo" });
+    const r = await llamar("academiaBuscarAlumnaPorCodigo", { codigo });
     if (!r.success) {
-      el("mensajeErrorKiosko").textContent = r.error || "No se pudo marcar la asistencia.";
+      el("mensajeErrorKiosko").textContent = r.error || "No se pudo buscar ese código.";
       codigoActual = "";
       pintarVisor();
       return;
     }
-    mostrarBienvenida(r);
+    codigoPendienteConfirmacion = codigo;
+    mostrarConfirmacion(r.alumna);
   } catch (e) {
     el("mensajeErrorKiosko").textContent = "No se pudo conectar. Inténtalo de nuevo.";
   } finally {
     el("btnConfirmarCodigo").disabled = false;
   }
+}
+
+function mostrarConfirmacion(alumna) {
+  el("pantallaTeclado").hidden = true;
+  el("pantallaConfirmacion").hidden = false;
+
+  const foto = alumna.fotoKey
+    ? `<img class="foto-bienvenida" src="${urlFoto(alumna.fotoKey)}" alt="" />`
+    : `<div class="foto-bienvenida vacia">💃</div>`;
+
+  el("contenidoConfirmacion").innerHTML = `
+    <div class="kiosko-bienvenida">
+      ${foto}
+      <div class="mensaje-bienvenida">¿Eres tú, ${escaparHtml(alumna.nombre)}?</div>
+      <div class="detalle-bienvenida">Confirma para marcar tu entrada.</div>
+    </div>
+  `;
+
+  // Si nadie confirma ni cancela (por ejemplo, se aleja de la tablet),
+  // regresa sola al teclado después de un rato para no quedarse
+  // trabada esperando.
+  clearTimeout(timeoutConfirmacion);
+  timeoutConfirmacion = setTimeout(cancelarConfirmacion, 10000);
+}
+
+async function confirmarEntradaFinal() {
+  if (!codigoPendienteConfirmacion) return;
+  clearTimeout(timeoutConfirmacion);
+  el("btnSiSoyYo").disabled = true;
+  el("btnNoSoyYo").disabled = true;
+
+  try {
+    const r = await llamar("academiaMarcarAsistencia", { codigo: codigoPendienteConfirmacion, metodo: "Codigo" });
+    el("pantallaConfirmacion").hidden = true;
+    if (!r.success) {
+      el("pantallaTeclado").hidden = false;
+      el("mensajeErrorKiosko").textContent = r.error || "No se pudo marcar la asistencia.";
+      reiniciarCodigo();
+      return;
+    }
+    mostrarBienvenida(r);
+  } catch (e) {
+    el("pantallaConfirmacion").hidden = true;
+    el("pantallaTeclado").hidden = false;
+    el("mensajeErrorKiosko").textContent = "No se pudo conectar. Inténtalo de nuevo.";
+    reiniciarCodigo();
+  } finally {
+    codigoPendienteConfirmacion = null;
+    el("btnSiSoyYo").disabled = false;
+    el("btnNoSoyYo").disabled = false;
+  }
+}
+
+function cancelarConfirmacion() {
+  clearTimeout(timeoutConfirmacion);
+  codigoPendienteConfirmacion = null;
+  el("pantallaConfirmacion").hidden = true;
+  el("pantallaTeclado").hidden = false;
+  reiniciarCodigo();
 }
 
 function mostrarBienvenida(r) {

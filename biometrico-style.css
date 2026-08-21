@@ -590,6 +590,22 @@ to{ opacity:1; transform:scale(1); }
 animation:apareceBienvenida .25s ease;
 }
 
+/* -------- botones "¿eres tú?" antes de marcar entrada -------- */
+
+.kiosko-botones-confirmacion{
+display:grid;
+grid-template-columns:1fr 1fr;
+gap:14px;
+width:100%;
+max-width:340px;
+margin-top:8px;
+}
+
+.kiosko-botones-confirmacion .tecla-numpad{
+padding:22px 8px;
+font-size:16px;
+}
+
 @media (max-width:520px){
 .barra-superior{ flex-direction:column; align-items:flex-start; }
 .tarjeta-item{ flex-direction:column; align-items:flex-start; }
