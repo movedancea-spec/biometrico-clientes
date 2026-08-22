@@ -586,8 +586,19 @@ async function cargarHistorialEntradas() {
 // Notificaciones push
 // ---------------------------------------------------------------
 function base64UrlAUint8Array(base64Url) {
-  const relleno = "=".repeat((4 - (base64Url.length % 4)) % 4);
-  const base64 = (base64Url + relleno).replace(/-/g, "+").replace(/_/g, "/");
+  // .trim() por si a la variable VAPID_PUBLIC_KEY se le coló un
+  // espacio o un salto de línea al pegarla en Cloudflare — eso solo
+  // (sin este trim) ya hacía que atob() tronara con "The string
+  // contains invalid characters", un error que no dice nada de dónde
+  // viene el problema real.
+  const limpio = String(base64Url).trim();
+  if (!/^[A-Za-z0-9_-]+$/.test(limpio)) {
+    throw new Error(
+      "La llave pública de las notificaciones (VAPID_PUBLIC_KEY) tiene caracteres raros — revisa que esté bien copiada en el Worker de Cloudflare, sin espacios ni saltos de línea de más."
+    );
+  }
+  const relleno = "=".repeat((4 - (limpio.length % 4)) % 4);
+  const base64 = (limpio + relleno).replace(/-/g, "+").replace(/_/g, "/");
   const binario = atob(base64);
   const bytes = new Uint8Array(binario.length);
   for (let i = 0; i < binario.length; i++) bytes[i] = binario.charCodeAt(i);
