@@ -170,8 +170,15 @@ function mostrarPantallaBuscarAcademia() {
   el("mensajeErrorBuscarAcademia").textContent = "";
 }
 
-function mostrarPaso2ConAlumnas(academiaId, academiaNombre, alumnas) {
+function mostrarPaso2ConAlumnas(academiaId, academiaNombre, alumnas, colorMarca, logoKey) {
   alumnasParaElegir = { academiaId, academiaNombre, alumnas };
+
+  // Se aplica de una vez el color de ESTA academia (en vez de dejar el
+  // rosado por defecto hasta que entren con su clave) — así la
+  // pantalla de "elige a tu hijo" ya sale vestida igual que el resto
+  // del portal de esa academia.
+  aplicarMarca(colorMarca || null);
+  aplicarLogoEnHeader(logoKey || null);
 
   const select = el("selectAlumnaPortal");
   select.innerHTML = alumnas.map((a) => `<option value="${a.id}">${escaparHtml(a.nombre)}</option>`).join("");
@@ -211,7 +218,7 @@ async function cargarAlumnasPorAcademiaId(academiaId) {
       return;
     }
 
-    mostrarPaso2ConAlumnas(r.academiaId, r.academiaNombre, r.alumnas);
+    mostrarPaso2ConAlumnas(r.academiaId, r.academiaNombre, r.alumnas, r.colorMarca, r.logoKey);
   } catch (e) {
     llegoPorLinkDirecto = false;
     mostrarPantallaBuscarAcademia();
@@ -236,7 +243,7 @@ el("btnBuscarAcademia").addEventListener("click", async () => {
     if (!r.alumnas.length) { el("mensajeErrorBuscarAcademia").textContent = "Esa academia todavía no tiene alumnos registrados."; return; }
 
     llegoPorLinkDirecto = false;
-    mostrarPaso2ConAlumnas(r.academiaId, r.academiaNombre || nombreAcademia, r.alumnas);
+    mostrarPaso2ConAlumnas(r.academiaId, r.academiaNombre || nombreAcademia, r.alumnas, r.colorMarca, r.logoKey);
   } catch (e) {
     el("mensajeErrorBuscarAcademia").textContent = "No se pudo conectar. Revisa tu conexión.";
   } finally {
