@@ -78,6 +78,31 @@ function redimensionarImagen(archivo, ladoMaximo = 480, calidadJpeg = 0.82) {
   });
 }
 
+// Lee cualquier archivo (PDF incluido) como data URL, tal cual, sin
+// pasar por canvas — se usa para los comprobantes de pago cuando son
+// PDF, porque un PDF no se puede "dibujar" en un canvas como una foto.
+function leerArchivoBase64(archivo) {
+  return new Promise((resolve, reject) => {
+    if (!archivo) return resolve(null);
+    const lector = new FileReader();
+    lector.onerror = () => reject(new Error("No se pudo leer el archivo."));
+    lector.onload = () => resolve(lector.result);
+    lector.readAsDataURL(archivo);
+  });
+}
+
+// El comprobante de pago puede ser una foto (se reduce, igual que el
+// resto de imágenes del sistema, pero a un tamaño más grande que un
+// logo/foto de alumna para que los montos y datos se sigan leyendo
+// bien) o un PDF (se manda tal cual, no se puede reducir).
+async function leerComprobanteBase64(archivo) {
+  if (!archivo) return null;
+  if (archivo.type === "application/pdf") {
+    return leerArchivoBase64(archivo);
+  }
+  return redimensionarImagen(archivo, 1400, 0.85);
+}
+
 // ---------------------------------------------------------------
 // PERSONALIZACIÓN (color + logo) — se aplica con variables CSS, así
 // que un solo color elegido por la academia recolorea todo el panel
@@ -432,6 +457,7 @@ async function cargarMensualidad() {
 function pintarMensualidad(r) {
   el("mensajeErrorMensualidad").textContent = "";
   el("mensajeExitoMensualidad").textContent = "";
+  pintarEstadoComprobante(r);
 
   if (r.estadoMes === "pagado") {
     el("mensualidadTextoAyuda").textContent = `Tu mensualidad de este mes (${r.mes}) ya está pagada. ¡Gracias!`;
@@ -439,6 +465,7 @@ function pintarMensualidad(r) {
     el("mensualidadEstadoTexto").style.color = "#1a9c5c";
     el("btnGenerarLinkPago").hidden = true;
     el("enlaceLinkPago").hidden = true;
+    el("mensualidadTextoLinkVence").hidden = true;
     return;
   }
 
@@ -452,15 +479,28 @@ function pintarMensualidad(r) {
 
   // Un botón a la vez: si ya hay un link generado y pendiente de pagar,
   // se muestra SOLO "Pagar ahora" (ya no tiene caso volver a generar
-  // otro); si todavía no hay link, se muestra SOLO "Generar link de pago".
+  // otro); si todavía no hay link (o el anterior ya venció, pasadas 24
+  // horas), se muestra SOLO "Generar link de pago".
   if (r.link) {
     el("btnGenerarLinkPago").hidden = true;
     el("enlaceLinkPago").href = r.link;
     el("enlaceLinkPago").hidden = false;
+    el("mensualidadTextoLinkVence").hidden = false;
+    el("mensualidadTextoLinkVence").textContent = "Este link de pago es válido por 24 horas desde que se generó.";
   } else {
     el("btnGenerarLinkPago").hidden = !r.mensualidad;
     el("enlaceLinkPago").hidden = true;
+    el("mensualidadTextoLinkVence").hidden = !r.linkExpirado;
+    if (r.linkExpirado) {
+      el("mensualidadTextoLinkVence").textContent = "Tu link anterior ya venció (duran 24 horas) — genera uno nuevo.";
+    }
   }
+}
+
+function pintarEstadoComprobante(r) {
+  el("comprobanteEstadoTexto").textContent = r.comprobanteSubido
+    ? `✅ Ya subiste un comprobante para ${r.mes}${r.comprobanteSubidoEn ? " (" + r.comprobanteSubidoEn + " UTC)" : ""} — el administrador lo va a revisar.`
+    : `Todavía no has subido ningún comprobante para ${r.mes}.`;
 }
 
 el("btnGenerarLinkPago").addEventListener("click", async () => {
@@ -486,6 +526,33 @@ el("btnGenerarLinkPago").addEventListener("click", async () => {
   } finally {
     el("btnGenerarLinkPago").disabled = false;
     el("btnGenerarLinkPago").textContent = "Generar link de pago";
+  }
+});
+
+el("btnSubirComprobante").addEventListener("click", async () => {
+  el("mensajeErrorComprobante").textContent = "";
+  el("mensajeExitoComprobante").textContent = "";
+
+  const archivo = el("inputComprobantePago").files[0] || null;
+  if (!archivo) { el("mensajeErrorComprobante").textContent = "Elige primero una foto o un PDF de tu comprobante."; return; }
+  if (archivo.type !== "application/pdf" && !archivo.type.startsWith("image/")) {
+    el("mensajeErrorComprobante").textContent = "Ese archivo no es una foto ni un PDF."; return;
+  }
+
+  el("btnSubirComprobante").disabled = true;
+  el("btnSubirComprobante").textContent = "Subiendo...";
+  try {
+    const comprobanteBase64 = await leerComprobanteBase64(archivo);
+    const r = await llamar("academiaSubirComprobante", { comprobanteBase64 });
+    if (!r.success) { el("mensajeErrorComprobante").textContent = r.error || "No se pudo subir el comprobante."; return; }
+    el("mensajeExitoComprobante").textContent = r.mensaje || "¡Comprobante subido!";
+    el("inputComprobantePago").value = "";
+    cargarMensualidad();
+  } catch (e) {
+    el("mensajeErrorComprobante").textContent = e.message || "No se pudo conectar. Inténtalo de nuevo.";
+  } finally {
+    el("btnSubirComprobante").disabled = false;
+    el("btnSubirComprobante").textContent = "Subir comprobante";
   }
 });
 

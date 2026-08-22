@@ -163,6 +163,62 @@ function abrirModalEditarAcademia(academia) {
     : "Debe la mensualidad de este mes (o de un mes anterior).";
   el("mensajeErrorEditarAcademia").textContent = "";
   el("modalEditarAcademia").hidden = false;
+  cargarHistorialPagos(academia.id);
+}
+
+// ---------------------------------------------------------------
+// HISTORIAL DE PAGOS (todos los meses de una academia) — incluye los
+// links de pago que generó y los comprobantes que haya subido.
+// ---------------------------------------------------------------
+async function cargarHistorialPagos(academiaId) {
+  const cont = el("listaHistorialPagos");
+  cont.innerHTML = '<p class="lista-vacia">Cargando historial...</p>';
+  try {
+    const r = await llamar("duenoListarPagosAcademia", { claveDueno, academiaId });
+    // Si mientras cargaba se cerró el modal o se abrió otra academia,
+    // no pintar un historial que ya no corresponde a lo que se ve.
+    if (academiaId !== academiaEditandoId) return;
+    if (!r.success) {
+      cont.innerHTML = `<p class="lista-vacia">${escaparHtml(r.error || "No se pudo cargar el historial.")}</p>`;
+      return;
+    }
+    pintarHistorialPagos(r.pagos);
+  } catch (e) {
+    if (academiaId !== academiaEditandoId) return;
+    cont.innerHTML = '<p class="lista-vacia">No se pudo cargar el historial. Revisa tu conexión.</p>';
+  }
+}
+
+function pintarHistorialPagos(pagos) {
+  const cont = el("listaHistorialPagos");
+  if (!pagos || !pagos.length) {
+    cont.innerHTML = '<p class="lista-vacia">Todavía no hay ningún cobro generado para esta academia.</p>';
+    return;
+  }
+
+  cont.innerHTML = "";
+  pagos.forEach((p) => {
+    const div = document.createElement("div");
+    div.className = "tarjeta-item";
+    const partes = [];
+    if (p.paggo_link) {
+      partes.push(`<a href="${escaparHtml(p.paggo_link)}" target="_blank" rel="noopener">Ver link de pago →</a>`);
+    }
+    if (p.comprobante_key) {
+      partes.push(`<a href="${API_URL}/foto?key=${encodeURIComponent(p.comprobante_key)}" target="_blank" rel="noopener">📎 Ver comprobante →</a>`);
+    }
+    div.innerHTML = `
+      <div class="info-principal">
+        <div class="nombre-item">${escaparHtml(p.mes)} — Q${Number(p.monto || 0).toFixed(2)}</div>
+        <div class="detalle-item">
+          <span class="etiqueta-estado ${p.estado === "pagado" ? "activa" : "inactiva"}">${p.estado === "pagado" ? "Pagado" : "Pendiente"}</span>
+          ${p.pagado_en ? `&nbsp;·&nbsp; pagado el ${escaparHtml(p.pagado_en)} UTC` : ""}
+          ${partes.length ? `<br/>${partes.join("&nbsp;·&nbsp;")}` : ""}
+        </div>
+      </div>
+    `;
+    cont.appendChild(div);
+  });
 }
 
 el("btnMarcarPagadoManual").addEventListener("click", async () => {

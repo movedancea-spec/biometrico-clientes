@@ -75,8 +75,25 @@
     <p style="margin:10px 0;"><strong id="mensualidadEstadoTexto"></strong></p>
     <button class="btn" id="btnGenerarLinkPago" hidden>Generar link de pago</button>
     <a class="btn" id="enlaceLinkPago" href="#" target="_blank" rel="noopener" hidden>Pagar ahora →</a>
+    <p class="ayuda" id="mensualidadTextoLinkVence" hidden></p>
     <p class="mensaje-error" id="mensajeErrorMensualidad"></p>
     <p class="mensaje-exito" id="mensajeExitoMensualidad"></p>
+
+    <hr style="border:none; border-top:1px solid var(--color-marca-suave2); margin:18px 0;" />
+
+    <p class="ayuda" style="margin-top:0;">¿Pagaste por transferencia o depósito en vez de tarjeta? Sube aquí tu comprobante para que el administrador lo revise y active tu cuenta.</p>
+    <p class="ayuda" id="comprobanteEstadoTexto" style="margin:6px 0;"></p>
+    <div class="fila-formulario" style="align-items:flex-end;">
+      <div>
+        <label>Comprobante (foto o PDF)</label>
+        <input type="file" id="inputComprobantePago" accept="image/*,application/pdf" />
+      </div>
+      <div>
+        <button class="btn secundario" id="btnSubirComprobante">Subir comprobante</button>
+      </div>
+    </div>
+    <p class="mensaje-error" id="mensajeErrorComprobante"></p>
+    <p class="mensaje-exito" id="mensajeExitoComprobante"></p>
   </div>
 
   <!-- -------- Personalizar (logo y color) -------- -->
@@ -198,6 +215,6 @@
   </div>
 </div>
 
-<script src="academia.js?v=d1b8946a"></script>
+<script src="academia.js?v=4f8fc53c"></script>
 </body>
 </html>
