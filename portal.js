@@ -10,7 +10,7 @@ const API_URL = "https://biometrico-saas.movedancea.workers.dev";
 // nueva de los archivos — ver verificarActualizacion() al final de
 // este archivo. NO cambiar este valor a mano: lo actualiza el script
 // actualizar-versiones.mjs cada vez que algo cambia.
-const VERSION_APP = "00f080b689c4";
+const VERSION_APP = "d64aa1e02991";
 
 const el = (id) => document.getElementById(id);
 
@@ -102,11 +102,50 @@ function mezclarConBlanco(hex, porcentaje) {
 function oscurecer(hex, porcentaje) {
   return rgbAHex(hexARgb(hex).map((c) => c * (1 - porcentaje)));
 }
+// El icono que queda en la pantalla de inicio del celular cuando
+// "instalan" el portal (Agregar a pantalla de inicio) — por defecto
+// el navegador pone una "P" gris genérica (de "Portal"). Esto lo
+// cambia por un cuadrito del color de marca de la academia, para que
+// se vea igual de personalizado que el resto del portal. El dibujo
+// en sí lo genera el Worker (ver /icono-color.png en worker.js) —
+// aquí solo se apunta el <link> a esa URL con el color que toque.
+function aplicarIconoInstalacion(colorMarca) {
+  const esValido = colorMarca && /^#[0-9a-fA-F]{6}$/.test(colorMarca);
+  const color = esValido ? colorMarca.replace("#", "") : "ef4b9b"; // rosado por defecto, igual que el resto del portal
+  const urlIcono = `${API_URL}/icono-color.png?color=${color}`;
+
+  let iconoApple = document.querySelector('link[rel="apple-touch-icon"]');
+  if (!iconoApple) {
+    iconoApple = document.createElement("link");
+    iconoApple.rel = "apple-touch-icon";
+    document.head.appendChild(iconoApple);
+  }
+  iconoApple.href = urlIcono;
+
+  let iconoNormal = document.querySelector('link[rel="icon"]');
+  if (!iconoNormal) {
+    iconoNormal = document.createElement("link");
+    iconoNormal.rel = "icon";
+    document.head.appendChild(iconoNormal);
+  }
+  iconoNormal.href = urlIcono;
+
+  let temaColor = document.querySelector('meta[name="theme-color"]');
+  if (!temaColor) {
+    temaColor = document.createElement("meta");
+    temaColor.name = "theme-color";
+    document.head.appendChild(temaColor);
+  }
+  temaColor.content = esValido ? colorMarca : "#ef4b9b";
+}
+
 function aplicarMarca(colorMarca) {
   const raiz = document.documentElement.style;
   ["--color-marca", "--color-marca-oscuro", "--color-marca-suave", "--color-marca-suave2",
     "--color-marca-suave3", "--color-marca-fondo", "--color-marca-fondo2", "--color-marca-fondo3",
     "--color-marca-texto-suave", "--color-marca-texto-suave2"].forEach((v) => raiz.removeProperty(v));
+
+  aplicarIconoInstalacion(colorMarca);
 
   if (!colorMarca || !/^#[0-9a-fA-F]{6}$/.test(colorMarca)) return;
 
@@ -303,8 +342,26 @@ el("btnEntrarPortal").addEventListener("click", async () => {
 });
 
 el("btnAgregarOtraAlumna").addEventListener("click", () => {
+  // Casi siempre es para agregar a un hermano de la MISMA academia
+  // que ya está usando este dispositivo — así que, en vez de mandar
+  // al papá a escribir el nombre de la academia otra vez (como si no
+  // supiéramos ya cuál es), se va directo a la lista de alumnos de
+  // esa academia para que elija y ponga la contraseña. Si de verdad
+  // es de otra academia, en esa misma pantalla sigue disponible
+  // "← Cambiar de academia" para buscarla a mano.
   llegoPorLinkDirecto = false;
-  mostrarPantallaBuscarAcademia();
+  const activa = alumnaActivaId ? alumnasGuardadas.find((a) => a.alumnaId === alumnaActivaId) : null;
+  const referencia = activa || alumnasGuardadas[0];
+  if (referencia && referencia.academiaId) {
+    el("pantallaBuscarAcademia").hidden = true;
+    el("pantallaPortalPanel").hidden = true;
+    cargarAlumnasPorAcademiaId(referencia.academiaId);
+  } else {
+    // Caso raro: no hay ninguna academiaId guardada todavía (por
+    // ejemplo, alumnos agregados antes de que existiera este dato) —
+    // se cae de vuelta al buscador, como antes.
+    mostrarPantallaBuscarAcademia();
+  }
 });
 
 // ---------------------------------------------------------------
