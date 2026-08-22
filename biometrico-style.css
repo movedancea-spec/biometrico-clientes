@@ -7,6 +7,16 @@
 
 *{ box-sizing:border-box; }
 
+/* Blindaje: cualquier elemento con el atributo "hidden" se oculta
+   SIEMPRE, sin importar qué otras reglas de esta hoja le pongan
+   display (ej. ".btn{display:inline-block}"). Sin esta regla, un
+   botón con clase .btn y el atributo "hidden" se seguía viendo, porque
+   la regla de la clase ".btn" le ganaba a la regla por defecto del
+   navegador para "hidden" — esto causaba que apareciera "Pagar ahora"
+   junto con "Generar link de pago" aunque el código dijera que uno de
+   los dos debía estar oculto. */
+[hidden]{ display:none !important; }
+
 /* Colores de marca — por defecto el rosa de siempre. Cada academia
    puede reemplazar --color-marca (y de ahí se derivan automáticamente
    los demás tonos, ver aplicarMarca() en academia.js/biometrico.js).
