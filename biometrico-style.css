@@ -295,6 +295,11 @@ background:#fffafc;
 flex-wrap:wrap;
 }
 
+.tarjeta-item.tarjeta-mes-actual{
+border-color:var(--color-marca);
+background:var(--color-marca-suave2);
+}
+
 .tarjeta-item .foto-miniatura{
 width:46px;
 height:46px;

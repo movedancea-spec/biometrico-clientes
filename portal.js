@@ -56,6 +56,29 @@ function formatearMes(mesTexto) {
   return `${NOMBRES_MES[mes - 1] || mesTexto} ${anio}`;
 }
 
+// El "mes en curso" de los 2 historiales de abajo (asistencias y
+// entradas) siempre se calcula con la hora de Guatemala (UTC-6), igual
+// que el corte de mes del lado del servidor — así lo que el papá ve
+// como "este mes" siempre coincide con lo que cuenta worker.js, sin
+// importar en qué zona horaria esté el teléfono/computadora.
+function mesGuatemalaActualCliente() {
+  const partes = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Guatemala", year: "numeric", month: "2-digit",
+  }).formatToParts(new Date());
+  const anio = partes.find((p) => p.type === "year").value;
+  const mes = partes.find((p) => p.type === "month").value;
+  return `${anio}-${mes}`;
+}
+function mesGuatemalaDeFecha(fechaSql) {
+  const fecha = new Date(String(fechaSql).replace(" ", "T") + "Z");
+  const partes = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Guatemala", year: "numeric", month: "2-digit",
+  }).formatToParts(fecha);
+  const anio = partes.find((p) => p.type === "year").value;
+  const mes = partes.find((p) => p.type === "month").value;
+  return `${anio}-${mes}`;
+}
+
 // ---------------------------------------------------------------
 // Colores de marca — igual que en academia.js/biometrico.js, así el
 // portal se ve "vestido" con el color y el logo de CADA academia.
@@ -377,45 +400,121 @@ function pintarFotoAlumna(fotoKey) {
   else { img.hidden = true; vacia.hidden = false; }
 }
 
+function tarjetaMes(mesTexto, cantidad, clasesPorMes, destacada) {
+  return `
+    <div class="tarjeta-item${destacada ? " tarjeta-mes-actual" : ""}">
+      <div class="info-principal">
+        <div class="nombre-item">${escaparHtml(formatearMes(mesTexto))}${destacada ? " · mes en curso" : ""}</div>
+        <div class="detalle-item">${cantidad} / ${clasesPorMes} clases</div>
+      </div>
+    </div>
+  `;
+}
+
+// Solo se muestra el mes en curso de una vez — el resto de meses queda
+// oculto detrás de un botón, para no llenar la pantalla principal con
+// todo el historial. El corte de "mes en curso" es con hora de
+// Guatemala (mesGuatemalaActualCliente), igual que en el servidor.
 async function cargarHistorialMeses() {
   const cont = el("listaHistorialMeses");
   cont.innerHTML = '<p class="lista-vacia">Cargando...</p>';
   try {
     const r = await llamar("portalHistorialAsistenciasPorMes", {});
-    if (!r.success || !r.historial.length) {
-      cont.innerHTML = '<p class="lista-vacia">Todavía no hay ninguna asistencia registrada.</p>';
+    if (!r.success) {
+      cont.innerHTML = '<p class="lista-vacia">No se pudo cargar. Revisa tu conexión.</p>';
       return;
     }
-    cont.innerHTML = r.historial.map((h) => `
-      <div class="tarjeta-item">
-        <div class="info-principal">
-          <div class="nombre-item">${escaparHtml(formatearMes(h.mes))}</div>
-          <div class="detalle-item">${h.cantidad} / ${r.clasesPorMes} clases</div>
+    const mesActual = mesGuatemalaActualCliente();
+    const actual = (r.historial || []).find((h) => h.mes === mesActual);
+    const anteriores = (r.historial || []).filter((h) => h.mes !== mesActual);
+
+    let html = tarjetaMes(mesActual, actual ? actual.cantidad : 0, r.clasesPorMes, true);
+
+    if (anteriores.length) {
+      html += `
+        <button type="button" class="btn secundario chico" id="btnVerMesesAnteriores" style="margin-top:10px;">Ver meses anteriores ▾</button>
+        <div id="listaMesesAnteriores" hidden style="margin-top:10px;">
+          ${anteriores.map((h) => tarjetaMes(h.mes, h.cantidad, r.clasesPorMes, false)).join("")}
         </div>
-      </div>
-    `).join("");
+      `;
+    }
+
+    cont.innerHTML = html;
+
+    const btn = el("btnVerMesesAnteriores");
+    if (btn) {
+      btn.addEventListener("click", () => {
+        const lista = el("listaMesesAnteriores");
+        lista.hidden = !lista.hidden;
+        btn.textContent = lista.hidden ? "Ver meses anteriores ▾" : "Ocultar meses anteriores ▴";
+      });
+    }
   } catch (e) {
     cont.innerHTML = '<p class="lista-vacia">No se pudo cargar. Revisa tu conexión.</p>';
   }
 }
 
+function tarjetaEntrada(entrada) {
+  return `
+    <div class="tarjeta-item">
+      <div class="info-principal">
+        <div class="nombre-item">${escaparHtml(formatearFechaHora(entrada.fecha))}</div>
+        <div class="detalle-item">${entrada.metodo === "Huella" ? "👆 Huella" : "🔢 Código"}</div>
+      </div>
+    </div>
+  `;
+}
+
+// Igual que arriba: solo las entradas del mes en curso se ven de
+// entrada, el resto (agrupado por mes) queda detrás de un botón.
 async function cargarHistorialEntradas() {
   const cont = el("listaHistorialEntradas");
   cont.innerHTML = '<p class="lista-vacia">Cargando...</p>';
   try {
     const r = await llamar("portalHistorialEntradas", {});
-    if (!r.success || !r.entradas.length) {
-      cont.innerHTML = '<p class="lista-vacia">Todavía no hay ninguna entrada registrada.</p>';
+    if (!r.success) {
+      cont.innerHTML = '<p class="lista-vacia">No se pudo cargar. Revisa tu conexión.</p>';
       return;
     }
-    cont.innerHTML = r.entradas.map((e) => `
-      <div class="tarjeta-item">
-        <div class="info-principal">
-          <div class="nombre-item">${escaparHtml(formatearFechaHora(e.fecha))}</div>
-          <div class="detalle-item">${e.metodo === "Huella" ? "👆 Huella" : "🔢 Código"}</div>
-        </div>
-      </div>
-    `).join("");
+    const entradas = r.entradas || [];
+    const mesActual = mesGuatemalaActualCliente();
+    const deEsteMes = entradas.filter((e) => mesGuatemalaDeFecha(e.fecha) === mesActual);
+    const deOtrosMeses = entradas.filter((e) => mesGuatemalaDeFecha(e.fecha) !== mesActual);
+
+    let html = deEsteMes.length
+      ? deEsteMes.map(tarjetaEntrada).join("")
+      : '<p class="lista-vacia">Todavía no hay ninguna entrada este mes.</p>';
+
+    if (deOtrosMeses.length) {
+      // Agrupadas por mes, con un encabezado por cada una, en el mismo
+      // orden (más reciente primero) en que ya vienen del servidor.
+      const porMes = new Map();
+      for (const e of deOtrosMeses) {
+        const mes = mesGuatemalaDeFecha(e.fecha);
+        if (!porMes.has(mes)) porMes.set(mes, []);
+        porMes.get(mes).push(e);
+      }
+      const gruposHtml = [...porMes.entries()].map(([mes, lista]) => `
+        <div class="subtitulo-historial" style="margin:14px 0 6px 0; font-weight:700;">${escaparHtml(formatearMes(mes))}</div>
+        ${lista.map(tarjetaEntrada).join("")}
+      `).join("");
+
+      html += `
+        <button type="button" class="btn secundario chico" id="btnVerEntradasAnteriores" style="margin-top:10px;">Ver meses anteriores ▾</button>
+        <div id="listaEntradasAnteriores" hidden style="margin-top:10px;">${gruposHtml}</div>
+      `;
+    }
+
+    cont.innerHTML = html;
+
+    const btn = el("btnVerEntradasAnteriores");
+    if (btn) {
+      btn.addEventListener("click", () => {
+        const lista = el("listaEntradasAnteriores");
+        lista.hidden = !lista.hidden;
+        btn.textContent = lista.hidden ? "Ver meses anteriores ▾" : "Ocultar meses anteriores ▴";
+      });
+    }
   } catch (e) {
     cont.innerHTML = '<p class="lista-vacia">No se pudo cargar. Revisa tu conexión.</p>';
   }
