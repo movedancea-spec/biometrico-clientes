@@ -632,6 +632,62 @@ padding:22px 8px;
 font-size:16px;
 }
 
+/* -------- Portal de Alumnas: selector de hijas + cabecera de alumna -------- */
+
+.selector-alumnas{
+display:flex;
+gap:8px;
+flex-wrap:wrap;
+margin-bottom:18px;
+}
+
+.chip-alumna{
+border:2px solid var(--color-marca-suave);
+background:white;
+color:var(--color-marca-texto-suave);
+border-radius:999px;
+padding:8px 16px;
+font-family:inherit;
+font-size:13px;
+font-weight:700;
+cursor:pointer;
+transition:background .15s, color .15s, border-color .15s;
+}
+
+.chip-alumna:hover{ border-color:var(--color-marca); }
+
+.chip-alumna.activo{
+background:var(--color-marca);
+border-color:var(--color-marca);
+color:white;
+}
+
+.cabecera-alumna{
+display:flex;
+align-items:center;
+gap:14px;
+}
+
+.cabecera-alumna .foto-preview{
+width:64px;
+height:64px;
+margin:0;
+flex-shrink:0;
+}
+
+.cabecera-alumna .foto-miniatura.vacia{
+width:64px;
+height:64px;
+border-radius:50%;
+display:flex;
+align-items:center;
+justify-content:center;
+font-size:26px;
+color:var(--color-marca);
+background:var(--color-marca-suave);
+flex-shrink:0;
+}
+
 @media (max-width:520px){
 .barra-superior{ flex-direction:column; align-items:flex-start; }
 .tarjeta-item{ flex-direction:column; align-items:flex-start; }

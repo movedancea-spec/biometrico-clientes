@@ -646,9 +646,12 @@ el("btnCrearAlumna").addEventListener("click", async () => {
       el("mensajeErrorCrear").textContent = r.error || "No se pudo agregar.";
       return;
     }
+    const textoClavePortal = r.claveInicialPortal
+      ? ` Su contraseña del Portal de Alumnas es ${r.claveInicialPortal} — cómpartesela a los papás (la pueden cambiar después).`
+      : "";
     el("mensajeExitoCrear").textContent = r.advertenciaFoto
-      ? `"${nombre}" agregada con el código #${r.codigo}. ⚠️ ${r.advertenciaFoto}`
-      : `"${nombre}" agregada con el código #${r.codigo}.`;
+      ? `"${nombre}" agregada con el código #${r.codigo}.${textoClavePortal} ⚠️ ${r.advertenciaFoto}`
+      : `"${nombre}" agregada con el código #${r.codigo}.${textoClavePortal}`;
     el("inputNuevaAlumnaNombre").value = "";
     el("inputNuevaAlumnaClases").value = "8";
     el("inputNuevaAlumnaFoto").value = "";
@@ -671,6 +674,12 @@ function abrirModalEditar(alumna) {
   el("inputEditarFoto").value = "";
   el("mensajeErrorEditar").textContent = "";
 
+  el("textoEstadoClavePortal").textContent = alumna.tieneClavePortal
+    ? "Ya tiene una contraseña asignada — si la perdió, puedes generarle una nueva (la anterior deja de servir)."
+    : "Todavía no tiene contraseña del Portal de Alumnas — genérale una para poder compartírsela a los papás.";
+  el("btnGenerarClavePortal").textContent = alumna.tieneClavePortal ? "Generar contraseña nueva" : "Generar contraseña";
+  el("mensajeClavePortalGenerada").textContent = "";
+
   const preview = el("fotoPreviewModal");
   if (alumna.foto_key) {
     preview.src = urlFoto(alumna.foto_key);
@@ -681,6 +690,24 @@ function abrirModalEditar(alumna) {
 
   el("modalAlumna").hidden = false;
 }
+
+el("btnGenerarClavePortal").addEventListener("click", async () => {
+  if (!window.confirm("¿Generar una contraseña nueva del Portal de Alumnas para esta alumna? Si ya tenía una, deja de funcionar.")) return;
+
+  el("btnGenerarClavePortal").disabled = true;
+  el("mensajeClavePortalGenerada").textContent = "";
+  try {
+    const r = await llamar("academiaGenerarClavePortalAlumna", { alumnaId: alumnaEditandoId });
+    if (!r.success) { el("mensajeErrorEditar").textContent = r.error || "No se pudo generar."; return; }
+    el("mensajeClavePortalGenerada").textContent = `Contraseña nueva: ${r.clave} — cómpartesela a los papás.`;
+    el("textoEstadoClavePortal").textContent = "Ya tiene una contraseña asignada — si la perdió, puedes generarle una nueva (la anterior deja de servir).";
+    el("btnGenerarClavePortal").textContent = "Generar contraseña nueva";
+  } catch (e) {
+    el("mensajeErrorEditar").textContent = "No se pudo conectar. Inténtalo de nuevo.";
+  } finally {
+    el("btnGenerarClavePortal").disabled = false;
+  }
+});
 
 el("btnCancelarEditar").addEventListener("click", () => { el("modalAlumna").hidden = true; });
 

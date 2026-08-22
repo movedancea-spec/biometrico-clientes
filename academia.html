@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="biometrico-style.css?v=1c8ec8f5" />
+<link rel="stylesheet" href="biometrico-style.css?v=f90acef8" />
 </head>
 <body>
 
@@ -66,6 +66,12 @@
     <h2>📟 ¿Buscas la pantalla para marcar entradas?</h2>
     <p class="ayuda" style="margin-bottom:12px;">Esta página es solo para administrar alumnas (agregar, editar, borrar). Para la pantalla de la tablet donde las alumnas ingresan su código, se muestra su foto y un mensaje de bienvenida, usa <strong>biometrico.html</strong> — esa la dejas abierta en la entrada, aparte de esta.</p>
     <a class="btn secundario chico" href="biometrico.html" target="_blank" rel="noopener">Abrir pantalla de código (biométrico) →</a>
+  </div>
+
+  <div class="panel aviso-kiosko">
+    <h2>👨‍👩‍👧 Portal de Alumnas (para los papás)</h2>
+    <p class="ayuda" style="margin-bottom:12px;">Compárteles este enlace a los papás — ahí pueden ver el historial de asistencia de su hija y activar avisos de cuándo llega a su clase. Cada alumna tiene su propia contraseña del portal (la generas desde "Editar" en su tarjeta, más abajo) — esa es la que le compartes a la familia.</p>
+    <a class="btn secundario chico" href="portal.html" target="_blank" rel="noopener">Abrir el Portal de Alumnas →</a>
   </div>
 
   <!-- -------- Mensualidad (cobro por usar el biométrico) -------- -->
@@ -206,6 +212,16 @@
       <label>Cambiar foto (opcional)</label>
       <input type="file" id="inputEditarFoto" accept="image/*" />
     </div>
+
+    <hr style="border:none; border-top:1px solid var(--color-marca-suave2); margin:16px 0;" />
+
+    <div class="campo">
+      <label>👨‍👩‍👧 Contraseña del Portal de Alumnas</label>
+      <p class="ayuda" id="textoEstadoClavePortal" style="margin:2px 0 8px;"></p>
+      <button class="btn secundario chico" id="btnGenerarClavePortal" type="button">Generar contraseña nueva</button>
+      <p class="mensaje-exito" id="mensajeClavePortalGenerada" style="margin-top:8px;"></p>
+    </div>
+
     <p class="mensaje-error" id="mensajeErrorEditar"></p>
     <div class="acciones-modal">
       <button class="btn secundario" id="btnCancelarEditar">Cancelar</button>
@@ -215,6 +231,6 @@
   </div>
 </div>
 
-<script src="academia.js?v=a71abe9f"></script>
+<script src="academia.js?v=e6153291"></script>
 </body>
 </html>
