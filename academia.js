@@ -10,7 +10,7 @@ const API_URL = "https://biometrico-saas.movedancea.workers.dev";
 // nueva de los archivos — ver verificarActualizacion() al final de
 // este archivo. NO cambiar este valor a mano: lo actualiza el script
 // actualizar-versiones.mjs cada vez que algo cambia.
-const VERSION_APP = "d64aa1e02991";
+const VERSION_APP = "53e5f676d20a";
 
 const el = (id) => document.getElementById(id);
 
@@ -640,9 +640,11 @@ function pintarAlumnas(alumnas, cantidad, limite) {
       </div>
       <div class="acciones-item">
         <button class="btn secundario chico" data-accion="editar">Editar</button>
+        <button class="btn secundario chico" data-accion="asistencias">📋 Asistencias</button>
       </div>
     `;
     div.querySelector('[data-accion="editar"]').addEventListener("click", () => abrirModalEditar(a));
+    div.querySelector('[data-accion="asistencias"]').addEventListener("click", () => abrirModalAsistencias(a));
     cont.appendChild(div);
   });
 }
@@ -782,6 +784,86 @@ el("btnBorrarAlumna").addEventListener("click", async () => {
     el("mensajeErrorEditar").textContent = "No se pudo conectar. Inténtalo de nuevo.";
   }
 });
+
+// ---------------------------------------------------------------
+// ASISTENCIAS DE UN ALUMNO (ver + borrar una marcación puntual) —
+// para corregir cuando se confunden y marcan doble, o marcan al
+// alumno equivocado por error. Es la MISMA fila que cuenta tanto
+// "clases este mes" aquí como el historial que ve el papá en su
+// portal, así que borrarla aquí arregla los dos lados de una vez.
+// ---------------------------------------------------------------
+let alumnaAsistenciasId = null;
+
+function formatearFechaHora(fechaSql) {
+  try {
+    const fecha = new Date(String(fechaSql).replace(" ", "T") + "Z");
+    return fecha.toLocaleString("es-GT", {
+      timeZone: "America/Guatemala",
+      day: "numeric", month: "short", year: "numeric",
+      hour: "numeric", minute: "2-digit", hour12: true,
+    });
+  } catch (e) {
+    return fechaSql;
+  }
+}
+
+async function abrirModalAsistencias(alumna) {
+  alumnaAsistenciasId = alumna.id;
+  el("nombreAlumnaAsistencias").textContent = alumna.nombre;
+  el("mensajeErrorAsistencias").textContent = "";
+  el("modalAsistencias").hidden = false;
+  await cargarAsistenciasAlumna();
+}
+
+async function cargarAsistenciasAlumna() {
+  const cont = el("listaAsistenciasAlumna");
+  cont.innerHTML = '<p class="lista-vacia">Cargando...</p>';
+  try {
+    const r = await llamar("academiaAsistenciaAlumna", { alumnaId: alumnaAsistenciasId });
+    if (!r.success) {
+      cont.innerHTML = "";
+      el("mensajeErrorAsistencias").textContent = r.error || "No se pudo cargar el historial.";
+      return;
+    }
+    if (!r.asistencias.length) {
+      cont.innerHTML = '<p class="lista-vacia">Todavía no tiene ninguna asistencia marcada.</p>';
+      return;
+    }
+    cont.innerHTML = r.asistencias.map((a) => `
+      <div class="tarjeta-item">
+        <div class="info-principal">
+          <div class="nombre-item">${escaparHtml(formatearFechaHora(a.fecha))}</div>
+          <div class="detalle-item">${a.metodo === "Huella" ? "👆 Huella" : "🔢 Código"}</div>
+        </div>
+        <div class="acciones-item">
+          <button class="btn peligro chico" data-id="${a.id}">🗑️ Borrar</button>
+        </div>
+      </div>
+    `).join("");
+    cont.querySelectorAll("[data-id]").forEach((btn) => {
+      btn.addEventListener("click", () => borrarAsistencia(Number(btn.dataset.id)));
+    });
+  } catch (e) {
+    cont.innerHTML = "";
+    el("mensajeErrorAsistencias").textContent = "No se pudo conectar. Inténtalo de nuevo.";
+  }
+}
+
+async function borrarAsistencia(asistenciaId) {
+  if (!window.confirm("¿Borrar esta marcación? Se quita de \"clases este mes\" y del historial que ve el papá en su portal. Esto no se puede deshacer.")) return;
+
+  el("mensajeErrorAsistencias").textContent = "";
+  try {
+    const r = await llamar("academiaBorrarAsistencia", { asistenciaId });
+    if (!r.success) { el("mensajeErrorAsistencias").textContent = r.error || "No se pudo borrar."; return; }
+    await cargarAsistenciasAlumna();
+    cargarAlumnas(); // refresca "clases este mes" en la lista de atrás sin cerrar este modal
+  } catch (e) {
+    el("mensajeErrorAsistencias").textContent = "No se pudo conectar. Inténtalo de nuevo.";
+  }
+}
+
+el("btnCerrarAsistencias").addEventListener("click", () => { el("modalAsistencias").hidden = true; });
 
 // NOTA: marcar asistencia (la pantalla de "meter el código") ya NO vive
 // aquí — vive aparte, en biometrico.html/biometrico.js, pensada para
