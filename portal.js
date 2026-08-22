@@ -10,7 +10,7 @@ const API_URL = "https://biometrico-saas.movedancea.workers.dev";
 // nueva de los archivos — ver verificarActualizacion() al final de
 // este archivo. NO cambiar este valor a mano: lo actualiza el script
 // actualizar-versiones.mjs cada vez que algo cambia.
-const VERSION_APP = "53e5f676d20a";
+const VERSION_APP = "0874c1f2ba12";
 
 const el = (id) => document.getElementById(id);
 
@@ -112,7 +112,13 @@ function oscurecer(hex, porcentaje) {
 function aplicarIconoInstalacion(colorMarca) {
   const esValido = colorMarca && /^#[0-9a-fA-F]{6}$/.test(colorMarca);
   const color = esValido ? colorMarca.replace("#", "") : "ef4b9b"; // rosado por defecto, igual que el resto del portal
-  const urlIcono = `${API_URL}/icono-color.png?color=${color}`;
+  // "&v=VERSION_APP" es lo que hace que el navegador SÍ vuelva a pedir
+  // el ícono cuando de verdad cambia (por ejemplo, cuando le agregamos
+  // la letra "P" encima del color): como este archivo se cachea 30
+  // días para que cargue rápido, sin este número de versión en la URL
+  // el navegador se hubiera quedado usando para siempre la primera
+  // imagen que pidió, aunque el dibujo del ícono cambiara después.
+  const urlIcono = `${API_URL}/icono-color.png?color=${color}&v=${VERSION_APP}`;
 
   let iconoApple = document.querySelector('link[rel="apple-touch-icon"]');
   if (!iconoApple) {
