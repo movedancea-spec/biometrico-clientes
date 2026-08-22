@@ -192,18 +192,22 @@ function mostrarPanel() {
   iniciarActualizacionAutomatica();
 }
 
-// Refresca sola la lista de alumnas cada pocos segundos mientras el
-// panel está abierto, para que cuando una alumna marque su entrada en
-// la tablet (biometrico.html), el conteo de "clases este mes" se
-// actualice aquí SOLO, sin que Ana o la academia tengan que darle
-// refresh a la página. Se detiene al salir de la sesión, y se pausa
-// mientras la pestaña está en segundo plano para no gastar de más.
+// Refresca sola la lista de alumnas Y el estado de la mensualidad
+// cada pocos segundos mientras el panel está abierto — así, sin que
+// nadie tenga que darle refresh a la página:
+//   - cuando una alumna marca su entrada en la tablet (biometrico.html),
+//     el conteo de "clases este mes" se actualiza solo.
+//   - cuando Ana marca la academia como "pagada manualmente" desde su
+//     panel de dueño, aquí deja de decir "Pendiente de pago" y pasa a
+//     "✅ Al día" solo, sin que la academia tenga que recargar.
+// Se detiene al salir de la sesión, y se pausa mientras la pestaña
+// está en segundo plano para no gastar de más.
 function iniciarActualizacionAutomatica() {
   detenerActualizacionAutomatica();
   intervaloAlumnas = setInterval(() => {
     if (document.hidden) return; // pestaña en segundo plano — no molesta con llamadas de más
-    if (!el("modalAlumna").hidden) return; // no refrescar la lista mientras se está editando una alumna
-    cargarAlumnas();
+    if (el("modalAlumna").hidden) cargarAlumnas(); // no refrescar la lista mientras se está editando una alumna
+    cargarMensualidad();
   }, 15000);
 }
 
