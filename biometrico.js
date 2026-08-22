@@ -288,6 +288,19 @@ document.addEventListener("keydown", (e) => {
 let codigoPendienteConfirmacion = null;
 let timeoutConfirmacion = null;
 
+// En esta pantalla (la tablet, a la vista de las alumnas y sus papás)
+// no se debe mostrar el motivo real de un bloqueo por falta de pago —
+// eso es un asunto entre la academia y el administrador del sistema,
+// no algo que deba verse públicamente en la entrada. Por eso, cuando
+// el bloqueo es por mensualidad (r.bloqueadaPorPago), se reemplaza por
+// un mensaje genérico; cualquier otro error se sigue mostrando tal cual.
+function mensajeErrorParaKiosko(r, textoPorDefecto) {
+  if (r && r.bloqueadaPorPago) {
+    return "Esta cuenta está desactivada. Favor contactar a soporte.";
+  }
+  return (r && r.error) || textoPorDefecto;
+}
+
 async function buscarAlumnaParaConfirmar() {
   if (!codigoActual) return;
   const codigo = Number(codigoActual);
@@ -296,7 +309,7 @@ async function buscarAlumnaParaConfirmar() {
   try {
     const r = await llamar("academiaBuscarAlumnaPorCodigo", { codigo });
     if (!r.success) {
-      el("mensajeErrorKiosko").textContent = r.error || "No se pudo buscar ese código.";
+      el("mensajeErrorKiosko").textContent = mensajeErrorParaKiosko(r, "No se pudo buscar ese código.");
       codigoActual = "";
       pintarVisor();
       return;
@@ -344,7 +357,7 @@ async function confirmarEntradaFinal() {
     el("pantallaConfirmacion").hidden = true;
     if (!r.success) {
       el("pantallaTeclado").hidden = false;
-      el("mensajeErrorKiosko").textContent = r.error || "No se pudo marcar la asistencia.";
+      el("mensajeErrorKiosko").textContent = mensajeErrorParaKiosko(r, "No se pudo marcar la asistencia.");
       reiniciarCodigo();
       return;
     }
