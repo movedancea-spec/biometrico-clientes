@@ -272,7 +272,7 @@ el("btnGuardarEditarAcademia").addEventListener("click", async () => {
 });
 
 el("btnBorrarAcademia").addEventListener("click", async () => {
-  if (!window.confirm(`¿Borrar por completo a "${academiaEditandoNombre}"? Ya no va a poder iniciar sesión en ningún panel. Su historial de alumnas y asistencias se conserva, pero no vas a poder crear otra academia con ese mismo nombre. Esto no se puede deshacer.`)) return;
+  if (!window.confirm(`¿Borrar por completo a "${academiaEditandoNombre}"? Se elimina para siempre junto con sus alumnas, su historial de asistencias, sus pagos y sus fotos — después SÍ vas a poder crear otra academia con ese mismo nombre. Esto no se puede deshacer.`)) return;
 
   try {
     const r = await llamar("duenoBorrarAcademia", { claveDueno, academiaId: academiaEditandoId });

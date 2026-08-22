@@ -693,7 +693,7 @@ el("btnGuardarEditar").addEventListener("click", async () => {
 
 el("btnBorrarAlumna").addEventListener("click", async () => {
   const nombre = el("inputEditarNombre").value.trim();
-  if (!window.confirm(`¿Borrar a "${nombre}"? Su código nunca se volverá a usar, pero se conserva su historial de asistencia.`)) return;
+  if (!window.confirm(`¿Borrar a "${nombre}"? Se elimina para siempre junto con su historial de asistencia y su foto. Esto no se puede deshacer.`)) return;
 
   try {
     const r = await llamar("academiaBorrarAlumna", { alumnaId: alumnaEditandoId });
