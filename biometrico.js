@@ -14,7 +14,7 @@ const API_URL = "https://biometrico-saas.movedancea.workers.dev";
 // nueva de los archivos — ver verificarActualizacion() al final de
 // este archivo. NO cambiar este valor a mano: lo actualiza el script
 // actualizar-versiones.mjs cada vez que algo cambia.
-const VERSION_APP = "0874c1f2ba12";
+const VERSION_APP = "a9d6451c06e4";
 
 const el = (id) => document.getElementById(id);
 

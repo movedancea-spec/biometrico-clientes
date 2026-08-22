@@ -10,7 +10,7 @@ const API_URL = "https://biometrico-saas.movedancea.workers.dev";
 // nueva de los archivos — ver verificarActualizacion() al final de
 // este archivo. NO cambiar este valor a mano: lo actualiza el script
 // actualizar-versiones.mjs cada vez que algo cambia.
-const VERSION_APP = "0874c1f2ba12";
+const VERSION_APP = "a9d6451c06e4";
 
 const el = (id) => document.getElementById(id);
 
@@ -33,6 +33,30 @@ function mostrarPanel() {
   el("pantallaLogin").hidden = true;
   el("pantallaPanel").hidden = false;
   cargarAcademias();
+  iniciarActualizacionAutomaticaDeAcademias();
+}
+
+// Refresca sola la lista de academias cada pocos segundos mientras el
+// panel está abierto — así, sin que Ana tenga que darle refresh a la
+// página, se ve solo: cuando una academia agrega/borra un alumno (el
+// contador de alumnos cambia), cuando su mensualidad pasa a "Pendiente"
+// o "Al día", o cuando ella misma la activa/desactiva desde acá. Se
+// detiene al salir de la sesión, se pausa mientras la pestaña está en
+// segundo plano, y no refresca mientras hay un modal de editar abierto
+// (para no pisarle el formulario a media edición).
+let intervaloAcademias = null;
+function iniciarActualizacionAutomaticaDeAcademias() {
+  detenerActualizacionAutomaticaDeAcademias();
+  intervaloAcademias = setInterval(() => {
+    if (document.hidden) return; // pestaña en segundo plano — no molesta con llamadas de más
+    if (el("modalEditarAcademia").hidden) cargarAcademias();
+  }, 15000);
+}
+function detenerActualizacionAutomaticaDeAcademias() {
+  if (intervaloAcademias) {
+    clearInterval(intervaloAcademias);
+    intervaloAcademias = null;
+  }
 }
 
 async function intentarEntrar() {
@@ -66,6 +90,7 @@ el("inputClaveDueno").addEventListener("keydown", (e) => { if (e.key === "Enter"
 el("btnSalirDueno").addEventListener("click", () => {
   claveDueno = "";
   localStorage.removeItem("biometrico_clave_dueno");
+  detenerActualizacionAutomaticaDeAcademias();
   el("pantallaPanel").hidden = true;
   el("pantallaLogin").hidden = false;
   el("inputClaveDueno").value = "";
@@ -79,6 +104,7 @@ async function cargarAcademias() {
     const r = await llamar("duenoListarAcademias", { claveDueno });
     if (!r.success) {
       // La clave guardada ya no sirve — regresa al login.
+      detenerActualizacionAutomaticaDeAcademias();
       el("pantallaPanel").hidden = true;
       el("pantallaLogin").hidden = false;
       el("mensajeErrorLogin").textContent = r.error || "Tu sesión ya no es válida, vuelve a entrar.";
