@@ -10,6 +10,12 @@
 // IMPORTANTE: misma URL que en dueno.js/academia.js. Sin "/" al final.
 const API_URL = "https://biometrico-saas.movedancea.workers.dev";
 
+// Se actualiza solo, en automático, cada vez que se sube una versión
+// nueva de los archivos — ver verificarActualizacion() al final de
+// este archivo. NO cambiar este valor a mano: lo actualiza el script
+// actualizar-versiones.mjs cada vez que algo cambia.
+const VERSION_APP = "00f080b689c4";
+
 const el = (id) => document.getElementById(id);
 
 let sesion = null; // { academiaId, clave, nombre }
@@ -414,3 +420,43 @@ if (sesionGuardada) {
   sesion = sesionGuardada;
   mostrarTeclado();
 }
+
+// ---------------------------------------------------------------
+// AUTO-ACTUALIZACIÓN — revisa cada 5 minutos si hay una versión
+// nueva subida y, si la hay, recarga la tablet sola. No se recarga a
+// medias de una marcación: solo cuando la pantalla está en reposo
+// (esperando código, sin ningún dígito escrito todavía) — para no
+// cortar a un alumno que está a medio escribir su número, ni la
+// pantalla de confirmación o de bienvenida justo cuando alguien
+// acaba de marcar.
+// ---------------------------------------------------------------
+function tabletEnReposo() {
+  const enTeclado = el("pantallaTeclado") && !el("pantallaTeclado").hidden;
+  const enConfirmacion = el("pantallaConfirmacion") && !el("pantallaConfirmacion").hidden;
+  const enResultado = el("pantallaResultado") && !el("pantallaResultado").hidden;
+  if (enConfirmacion || enResultado) return false;
+  if (enTeclado && codigoActual) return false;
+  return true;
+}
+
+async function verificarActualizacion() {
+  try {
+    const resp = await fetch(`version.txt?_=${Date.now()}`, { cache: "no-store" });
+    if (!resp.ok) return;
+    const versionServidor = (await resp.text()).trim();
+    if (!versionServidor || versionServidor === VERSION_APP) return;
+    if (!tabletEnReposo()) return;
+
+    const url = new URL(location.href);
+    url.searchParams.set("_actualizado", Date.now());
+    location.href = url.href;
+  } catch (e) {
+    // Sin internet o falló la revisión — se reintenta solo más tarde.
+  }
+}
+
+verificarActualizacion();
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") verificarActualizacion();
+});
+setInterval(verificarActualizacion, 5 * 60 * 1000);

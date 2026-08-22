@@ -6,6 +6,12 @@
 // dueno.js. Sin "/" al final.
 const API_URL = "https://biometrico-saas.movedancea.workers.dev";
 
+// Se actualiza solo, en automático, cada vez que se sube una versión
+// nueva de los archivos — ver verificarActualizacion() al final de
+// este archivo. NO cambiar este valor a mano: lo actualiza el script
+// actualizar-versiones.mjs cada vez que algo cambia.
+const VERSION_APP = "00f080b689c4";
+
 const el = (id) => document.getElementById(id);
 
 // Cada alumno agregado en ESTE dispositivo se guarda aquí (localStorage),
@@ -787,3 +793,50 @@ async function quitarAlumnaDelDispositivo(alumnaId, avisarPush) {
     mostrarPantallaBuscarAcademia();
   }
 })();
+
+// ---------------------------------------------------------------
+// AUTO-ACTUALIZACIÓN
+// ---------------------------------------------------------------
+// Antes, cuando se subía un arreglo, el papá tenía que borrar el
+// portal de la pantalla de inicio de su celular y volver a agregarlo
+// (o hacer varios refresh) para que le llegara — porque el teléfono
+// (sobre todo iPhone, con el portal agregado a la pantalla de inicio)
+// se queda con una copia guardada de la página y no siempre revisa
+// si hay una nueva.
+//
+// Con esto ya no hace falta: cada vez que se abre el portal, cada vez
+// que vuelve a primer plano (lo abren de nuevo desde el ícono), y
+// cada 5 minutos mientras está abierto, se revisa un archivito
+// (version.txt) que dice cuál es la versión más reciente subida. Si
+// no coincide con la versión que tiene cargada este teléfono en este
+// momento, se recarga sola — así el arreglo llega automático, sin que
+// nadie tenga que hacer nada.
+async function verificarActualizacion() {
+  try {
+    const resp = await fetch(`version.txt?_=${Date.now()}`, { cache: "no-store" });
+    if (!resp.ok) return;
+    const versionServidor = (await resp.text()).trim();
+    if (!versionServidor || versionServidor === VERSION_APP) return;
+
+    // No interrumpir si en este momento están escribiendo algo (por
+    // ejemplo, poniendo su contraseña) — se vuelve a intentar en el
+    // siguiente chequeo, unos minutos después.
+    const activo = document.activeElement;
+    const escribiendo = activo && (activo.tagName === "INPUT" || activo.tagName === "TEXTAREA") && activo.value;
+    if (escribiendo) return;
+
+    const url = new URL(location.href);
+    url.searchParams.set("_actualizado", Date.now());
+    location.href = url.href;
+  } catch (e) {
+    // Sin internet en este momento, o falló la revisión — no pasa
+    // nada, se sigue usando la versión ya cargada y se reintenta solo
+    // más tarde.
+  }
+}
+
+verificarActualizacion();
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") verificarActualizacion();
+});
+setInterval(verificarActualizacion, 5 * 60 * 1000);

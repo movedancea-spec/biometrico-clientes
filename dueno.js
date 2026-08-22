@@ -6,6 +6,12 @@
 // "*.workers.dev" que te da por defecto). Debe terminar SIN "/" al final.
 const API_URL = "https://biometrico-saas.movedancea.workers.dev";
 
+// Se actualiza solo, en automático, cada vez que se sube una versión
+// nueva de los archivos — ver verificarActualizacion() al final de
+// este archivo. NO cambiar este valor a mano: lo actualiza el script
+// actualizar-versiones.mjs cada vez que algo cambia.
+const VERSION_APP = "00f080b689c4";
+
 const el = (id) => document.getElementById(id);
 
 let claveDueno = localStorage.getItem("biometrico_clave_dueno") || "";
@@ -325,3 +331,34 @@ if (claveDueno) {
   el("inputClaveDueno").value = claveDueno;
   intentarEntrar();
 }
+
+// ---------------------------------------------------------------
+// AUTO-ACTUALIZACIÓN — revisa cada vez que se abre, cada vez que
+// vuelve a primer plano y cada 5 minutos si hay una versión nueva
+// subida; si la hay, recarga sola en vez de esperar a un refresh a
+// mano.
+// ---------------------------------------------------------------
+async function verificarActualizacion() {
+  try {
+    const resp = await fetch(`version.txt?_=${Date.now()}`, { cache: "no-store" });
+    if (!resp.ok) return;
+    const versionServidor = (await resp.text()).trim();
+    if (!versionServidor || versionServidor === VERSION_APP) return;
+
+    const activo = document.activeElement;
+    const escribiendo = activo && (activo.tagName === "INPUT" || activo.tagName === "TEXTAREA") && activo.value;
+    if (escribiendo) return;
+
+    const url = new URL(location.href);
+    url.searchParams.set("_actualizado", Date.now());
+    location.href = url.href;
+  } catch (e) {
+    // Sin internet o falló la revisión — se reintenta solo más tarde.
+  }
+}
+
+verificarActualizacion();
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") verificarActualizacion();
+});
+setInterval(verificarActualizacion, 5 * 60 * 1000);
