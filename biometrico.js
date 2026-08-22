@@ -1,7 +1,7 @@
 // =====================================================================
 // BIOMÉTRICO — Pantalla de Entrada (para dejar en una tablet)
 // =====================================================================
-// Esta es la pantalla que se queda fija en la entrada: la alumna
+// Esta es la pantalla que se queda fija en la entrada: el alumno
 // escribe su código con el teclado en pantalla, ve su foto y un
 // mensaje de bienvenida, y automáticamente regresa a esperar el
 // siguiente código. No tiene NADA de administración — para eso está
@@ -280,15 +280,15 @@ document.addEventListener("keydown", (e) => {
 // MARCAR ASISTENCIA (primero se busca y se confirma, luego se marca)
 // ---------------------------------------------------------------
 // El flujo tiene dos pasos a propósito: 1) se busca el código y se
-// muestra la foto y el nombre de la alumna para que confirme que sí
+// muestra la foto y el nombre del alumno para que confirme que sí
 // es ella, y 2) solo al darle "Sí, entrar" se marca la asistencia de
 // verdad. Así, si alguien teclea mal el código y por casualidad cae
-// en el código de otra alumna, no se marca su entrada por error — se
+// en el código de otro alumno, no se marca su entrada por error — se
 // ve el nombre equivocado y se puede corregir antes de confirmar.
 let codigoPendienteConfirmacion = null;
 let timeoutConfirmacion = null;
 
-// En esta pantalla (la tablet, a la vista de las alumnas y sus papás)
+// En esta pantalla (la tablet, a la vista de los alumnos y sus papás)
 // no se debe mostrar el motivo real de un bloqueo por falta de pago —
 // eso es un asunto entre la academia y el administrador del sistema,
 // no algo que deba verse públicamente en la entrada. Por eso, cuando
@@ -393,7 +393,7 @@ function mostrarBienvenida(r) {
   el("contenidoResultado").innerHTML = `
     <div class="kiosko-bienvenida">
       ${foto}
-      <div class="mensaje-bienvenida">¡Bienvenida, ${escaparHtml(r.alumna.nombre)}!</div>
+      <div class="mensaje-bienvenida">¡Bienvenido, ${escaparHtml(r.alumna.nombre)}!</div>
       <div class="detalle-bienvenida">Asistencia marcada — ${r.clasesEsteMes} / ${r.clasesPorMes} clases este mes.</div>
     </div>
   `;

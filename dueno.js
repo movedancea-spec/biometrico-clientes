@@ -104,7 +104,7 @@ function pintarAcademias(academias) {
         <div class="nombre-item">${escaparHtml(a.nombre)}</div>
         <div class="detalle-item">
           <span class="etiqueta-estado ${a.activo ? "activa" : "inactiva"}">${a.activo ? "Activa" : "Desactivada"}</span>
-          &nbsp;·&nbsp; ${a.cantidadAlumnas} / ${a.limite_alumnas} alumnas
+          &nbsp;·&nbsp; ${a.cantidadAlumnas} / ${a.limite_alumnas} alumnos
           &nbsp;·&nbsp; Q${Number(a.mensualidad || 0).toFixed(2)}/mes
           &nbsp;·&nbsp; <span class="etiqueta-estado ${a.pago_al_dia ? "activa" : "inactiva"}">${a.pago_al_dia ? "Al día" : "Debe mensualidad"}</span>
         </div>
@@ -246,7 +246,7 @@ el("btnGuardarEditarAcademia").addEventListener("click", async () => {
   el("mensajeErrorEditarAcademia").textContent = "";
 
   if (!nombre) { el("mensajeErrorEditarAcademia").textContent = "El nombre no puede quedar vacío."; return; }
-  if (!nuevoLimite || nuevoLimite < 1) { el("mensajeErrorEditarAcademia").textContent = "Escribe un límite de alumnas válido."; return; }
+  if (!nuevoLimite || nuevoLimite < 1) { el("mensajeErrorEditarAcademia").textContent = "Escribe un límite de alumnos válido."; return; }
   if (claveNueva && claveNueva.length < 4) { el("mensajeErrorEditarAcademia").textContent = "La contraseña nueva debe tener al menos 4 caracteres."; return; }
   if (mensualidad < 0) { el("mensajeErrorEditarAcademia").textContent = "La mensualidad no puede ser negativa."; return; }
 
@@ -272,7 +272,7 @@ el("btnGuardarEditarAcademia").addEventListener("click", async () => {
 });
 
 el("btnBorrarAcademia").addEventListener("click", async () => {
-  if (!window.confirm(`¿Borrar por completo a "${academiaEditandoNombre}"? Se elimina para siempre junto con sus alumnas, su historial de asistencias, sus pagos y sus fotos — después SÍ vas a poder crear otra academia con ese mismo nombre. Esto no se puede deshacer.`)) return;
+  if (!window.confirm(`¿Borrar por completo a "${academiaEditandoNombre}"? Se elimina para siempre junto con sus alumnos, su historial de asistencias, sus pagos y sus fotos — después SÍ vas a poder crear otra academia con ese mismo nombre. Esto no se puede deshacer.`)) return;
 
   try {
     const r = await llamar("duenoBorrarAcademia", { claveDueno, academiaId: academiaEditandoId });

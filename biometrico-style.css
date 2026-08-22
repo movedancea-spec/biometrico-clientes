@@ -276,7 +276,7 @@ margin-bottom:4px;
 
 .fila-formulario input, .campo input{ margin-bottom:0; }
 
-/* -------- lista de tarjetas (academias / alumnas) -------- */
+/* -------- lista de tarjetas (academias / alumnos) -------- */
 
 .lista-tarjetas{
 display:flex;
@@ -632,7 +632,7 @@ padding:22px 8px;
 font-size:16px;
 }
 
-/* -------- Portal de Alumnas: selector de hijas + cabecera de alumna -------- */
+/* -------- Portal de Alumnos: selector de hijos + cabecera de alumno -------- */
 
 .selector-alumnas{
 display:flex;

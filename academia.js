@@ -11,7 +11,7 @@ const el = (id) => document.getElementById(id);
 let sesion = null; // { academiaId, clave, nombre, limiteAlumnas }
 let alumnaEditandoId = null;
 let fotoNuevaBase64 = null; // usada tanto para crear como para editar (se limpia entre usos)
-let intervaloAlumnas = null; // refresca sola la lista de alumnas (asistencias en tiempo casi real)
+let intervaloAlumnas = null; // refresca sola la lista de alumnos (asistencias en tiempo casi real)
 
 function urlFoto(fotoKey) {
   return fotoKey ? `${API_URL}/foto?key=${encodeURIComponent(fotoKey)}` : "";
@@ -33,7 +33,7 @@ function escaparHtml(t) {
 }
 
 // Las fotos que salen directo de un celular pueden pesar varios MB —
-// eso es lo que hacía que subir el logo (o una foto de alumna) se
+// eso es lo que hacía que subir el logo (o una foto de alumno) se
 // sintiera lentísimo, o hasta se quedara pegado. Antes de mandarla al
 // servidor, se reduce aquí mismo en el navegador a un tamaño de sobra
 // para cómo se usa en el sistema (nunca se muestra más grande que un
@@ -94,7 +94,7 @@ function leerArchivoBase64(archivo) {
 
 // El comprobante de pago puede ser una foto (se reduce, igual que el
 // resto de imágenes del sistema, pero a un tamaño más grande que un
-// logo/foto de alumna para que los montos y datos se sigan leyendo
+// logo/foto de alumno para que los montos y datos se sigan leyendo
 // bien) o un PDF (se manda tal cual, no se puede reducir).
 async function leerComprobanteBase64(archivo) {
   if (!archivo) return null;
@@ -192,10 +192,10 @@ function mostrarPanel() {
   iniciarActualizacionAutomatica();
 }
 
-// Refresca sola la lista de alumnas Y el estado de la mensualidad
+// Refresca sola la lista de alumnos Y el estado de la mensualidad
 // cada pocos segundos mientras el panel está abierto — así, sin que
 // nadie tenga que darle refresh a la página:
-//   - cuando una alumna marca su entrada en la tablet (biometrico.html),
+//   - cuando un alumno marca su entrada en la tablet (biometrico.html),
 //     el conteo de "clases este mes" se actualiza solo.
 //   - cuando Ana marca la academia como "pagada manualmente" desde su
 //     panel de dueño, aquí deja de decir "Pendiente de pago" y pasa a
@@ -206,7 +206,7 @@ function iniciarActualizacionAutomatica() {
   detenerActualizacionAutomatica();
   intervaloAlumnas = setInterval(() => {
     if (document.hidden) return; // pestaña en segundo plano — no molesta con llamadas de más
-    if (el("modalAlumna").hidden) cargarAlumnas(); // no refrescar la lista mientras se está editando una alumna
+    if (el("modalAlumna").hidden) cargarAlumnas(); // no refrescar la lista mientras se está editando un alumno
     cargarMensualidad();
   }, 15000);
 }
@@ -424,7 +424,7 @@ el("btnCambiarClave").addEventListener("click", async () => {
     if (!r.success) { el("mensajeErrorClave").textContent = r.error || "No se pudo cambiar."; return; }
     // La sesión guardada usa la clave para autenticar cada acción — si
     // no se actualiza aquí también, el siguiente clic (por ejemplo,
-    // cargar la lista de alumnas) fallaría con "Sesión inválida".
+    // cargar la lista de alumnos) fallaría con "Sesión inválida".
     sesion.clave = claveNueva;
     guardarSesion(sesion);
     el("inputClaveNueva").value = "";
@@ -586,17 +586,17 @@ el("btnSubirComprobante").addEventListener("click", async () => {
 });
 
 function pintarAlumnas(alumnas, cantidad, limite) {
-  el("infoLimiteAlumnas").textContent = `${cantidad} / ${limite} alumnas`;
+  el("infoLimiteAlumnas").textContent = `${cantidad} / ${limite} alumnos`;
   el("ayudaCantidadAlumnas").textContent =
     cantidad >= limite
       ? `Llegaste al límite de tu plan (${limite}). Para agregar más, hay que ampliar el plan con el administrador del sistema.`
-      : `Tienes ${cantidad} de ${limite} alumnas de tu plan actual.`;
+      : `Tienes ${cantidad} de ${limite} alumnos de tu plan actual.`;
 
   el("btnCrearAlumna").disabled = cantidad >= limite;
 
   const cont = el("listaAlumnas");
   if (!alumnas.length) {
-    cont.innerHTML = '<p class="lista-vacia">Todavía no has agregado ninguna alumna.</p>';
+    cont.innerHTML = '<p class="lista-vacia">Todavía no has agregado ningún alumno.</p>';
     return;
   }
 
@@ -636,7 +636,7 @@ el("btnCrearAlumna").addEventListener("click", async () => {
   el("mensajeErrorCrear").textContent = "";
   el("mensajeExitoCrear").textContent = "";
 
-  if (!nombre) { el("mensajeErrorCrear").textContent = "Escribe el nombre de la alumna."; return; }
+  if (!nombre) { el("mensajeErrorCrear").textContent = "Escribe el nombre del alumno."; return; }
 
   el("btnCrearAlumna").disabled = true;
   try {
@@ -647,7 +647,7 @@ el("btnCrearAlumna").addEventListener("click", async () => {
       return;
     }
     const textoClavePortal = r.claveInicialPortal
-      ? ` Su contraseña del Portal de Alumnas es ${r.claveInicialPortal} — cómpartesela a los papás (la pueden cambiar después).`
+      ? ` Su contraseña del Portal de Alumnos es ${r.claveInicialPortal} — cómpartesela a los papás (la pueden cambiar después).`
       : "";
     el("mensajeExitoCrear").textContent = r.advertenciaFoto
       ? `"${nombre}" agregada con el código #${r.codigo}.${textoClavePortal} ⚠️ ${r.advertenciaFoto}`
@@ -676,7 +676,7 @@ function abrirModalEditar(alumna) {
 
   el("textoEstadoClavePortal").textContent = alumna.tieneClavePortal
     ? "Ya tiene una contraseña asignada — si la perdió, puedes generarle una nueva (la anterior deja de servir)."
-    : "Todavía no tiene contraseña del Portal de Alumnas — genérale una para poder compartírsela a los papás.";
+    : "Todavía no tiene contraseña del Portal de Alumnos — genérale una para poder compartírsela a los papás.";
   el("btnGenerarClavePortal").textContent = alumna.tieneClavePortal ? "Generar contraseña nueva" : "Generar contraseña";
   el("mensajeClavePortalGenerada").textContent = "";
 
@@ -692,7 +692,7 @@ function abrirModalEditar(alumna) {
 }
 
 el("btnGenerarClavePortal").addEventListener("click", async () => {
-  if (!window.confirm("¿Generar una contraseña nueva del Portal de Alumnas para esta alumna? Si ya tenía una, deja de funcionar.")) return;
+  if (!window.confirm("¿Generar una contraseña nueva del Portal de Alumnos para este alumno? Si ya tenía una, deja de funcionar.")) return;
 
   el("btnGenerarClavePortal").disabled = true;
   el("mensajeClavePortalGenerada").textContent = "";
@@ -764,7 +764,7 @@ el("btnBorrarAlumna").addEventListener("click", async () => {
 // NOTA: marcar asistencia (la pantalla de "meter el código") ya NO vive
 // aquí — vive aparte, en biometrico.html/biometrico.js, pensada para
 // quedarse abierta en una tablet en la entrada. Esta página
-// (academia.html) es solo para administrar alumnas.
+// (academia.html) es solo para administrar alumnos.
 
 // ---------------------------------------------------------------
 // GUARDAR PERSONALIZACIÓN (color + logo)

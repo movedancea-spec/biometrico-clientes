@@ -6,26 +6,26 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
 <meta http-equiv="Pragma" content="no-cache" />
 <meta http-equiv="Expires" content="0" />
-<title>Portal de Alumnas</title>
+<title>Portal de Alumnos</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="biometrico-style.css?v=f90acef8" />
+<link rel="stylesheet" href="biometrico-style.css?v=6e91d6ca" />
 </head>
 <body>
 
 <!-- ============ PASO 1: nombre de la academia ============ -->
 <div class="tarjeta-login" id="pantallaBuscarAcademia">
-  <h1>👨‍👩‍👧 Portal de Alumnas</h1>
-  <p class="subtitulo">Aquí puedes ver el historial de asistencia de tu hija y activar los avisos de cuándo llega a su clase.</p>
+  <h1>👨‍👩‍👧‍👦 Portal de Alumnos</h1>
+  <p class="subtitulo">Aquí puedes ver el historial de asistencia de tu hijo y activar los avisos de cuándo llega a su clase.</p>
   <input type="text" id="inputPortalAcademia" placeholder="Nombre de la academia" autocomplete="off" />
   <button class="btn" id="btnBuscarAcademia">Continuar →</button>
   <p class="mensaje-error" id="mensajeErrorBuscarAcademia"></p>
 </div>
 
-<!-- ============ PASO 2: elegir alumna + contraseña ============ -->
+<!-- ============ PASO 2: elegir alumno + contraseña ============ -->
 <div class="tarjeta-login" id="pantallaElegirAlumna" hidden>
-  <h1>👧 ¿Cuál es tu hija?</h1>
+  <h1>🧒 ¿Cuál es tu hijo?</h1>
   <p class="subtitulo" id="subtituloElegirAlumna"></p>
   <select id="selectAlumnaPortal"></select>
   <input type="password" id="inputPortalClave" placeholder="Contraseña" autocomplete="off" />
@@ -38,7 +38,7 @@
 <!-- ============ OLVIDÉ MI CONTRASEÑA (paso 1) ============ -->
 <div class="tarjeta-login" id="pantallaOlvidePortal" hidden>
   <h1>🔑 Recuperar contraseña</h1>
-  <p class="subtitulo">Escribe el correo que registraste en el portal para esta alumna. Si coincide, te mandamos un enlace para poner una contraseña nueva.</p>
+  <p class="subtitulo">Escribe el correo que registraste en el portal para este alumno. Si coincide, te mandamos un enlace para poner una contraseña nueva.</p>
   <input type="email" id="inputOlvidePortalEmail" placeholder="Tu correo registrado" autocomplete="off" />
   <button class="btn" id="btnEnviarOlvidePortal">Mandar enlace de recuperación</button>
   <p class="mensaje-error" id="mensajeErrorOlvidePortal"></p>
@@ -63,9 +63,9 @@
   <div class="barra-superior">
     <div class="titulo-con-logo">
       <img class="logo-marca" id="logoPortalAcademia" src="" alt="" hidden />
-      <h1 id="tituloPortalAcademia">👨‍👩‍👧 Portal de Alumnas</h1>
+      <h1 id="tituloPortalAcademia">👨‍👩‍👧‍👦 Portal de Alumnos</h1>
     </div>
-    <button class="btn secundario chico" id="btnAgregarOtraAlumna" type="button">+ Agregar otra alumna</button>
+    <button class="btn secundario chico" id="btnAgregarOtraAlumna" type="button">+ Agregar otro alumno</button>
   </div>
 
   <div class="selector-alumnas" id="selectorAlumnasPortal"></div>
@@ -140,12 +140,12 @@
 
     <hr style="border:none; border-top:1px solid var(--color-marca-suave2); margin:20px 0;" />
 
-    <button class="btn peligro" id="btnQuitarAlumnaPortal" type="button">Quitar a esta alumna de este dispositivo</button>
+    <button class="btn peligro" id="btnQuitarAlumnaPortal" type="button">Quitar a este alumno de este dispositivo</button>
     <p class="ayuda" style="margin-top:8px;">Esto NO borra su historial ni su cuenta — solo deja de aparecer aquí en este teléfono/computadora. Puedes volver a agregarla cuando quieras con su contraseña.</p>
   </div>
 
 </div>
 
-<script src="portal.js?v=1e4451ec"></script>
+<script src="portal.js?v=ba5b7bbf"></script>
 </body>
 </html>

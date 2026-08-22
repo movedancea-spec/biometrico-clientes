@@ -1,5 +1,5 @@
 // =====================================================================
-// BIOMÉTRICO — Portal de Alumnas (papás)
+// BIOMÉTRICO — Portal de Alumnos (papás)
 // =====================================================================
 // IMPORTANTE: cambia esta URL por la de TU Worker una vez publicado en
 // Cloudflare — debe ser la MISMA URL que pusiste en academia.js y
@@ -8,10 +8,10 @@ const API_URL = "https://biometrico-saas.movedancea.workers.dev";
 
 const el = (id) => document.getElementById(id);
 
-// Cada alumna agregada en ESTE dispositivo se guarda aquí (localStorage),
+// Cada alumno agregado en ESTE dispositivo se guarda aquí (localStorage),
 // igual de simple que el resto del sistema: se manda la clave en cada
 // llamada y el servidor la revisa cada vez (no hay "sesión" del lado
-// del servidor). Así, un mismo teléfono puede tener varias hijas
+// del servidor). Así, un mismo teléfono puede tener varios hijos
 // agregadas a la vez.
 let alumnasGuardadas = [];   // [{alumnaId, clave, nombre, codigo, fotoKey, clasesPorMes, academiaId, academiaNombre, colorMarca, logoKey}]
 let alumnaActivaId = null;   // cuál de las de arriba se está viendo ahora
@@ -98,7 +98,7 @@ function aplicarLogoEnHeader(logoKey) {
 }
 
 // ---------------------------------------------------------------
-// Guardar / cargar las alumnas de este dispositivo
+// Guardar / cargar los alumnos de este dispositivo
 // ---------------------------------------------------------------
 function guardarAlumnasEnDisco() {
   localStorage.setItem("biometrico_portal_alumnas", JSON.stringify(alumnasGuardadas));
@@ -153,13 +153,13 @@ el("btnBuscarAcademia").addEventListener("click", async () => {
     }).then((resp) => resp.json());
 
     if (!r.success) { el("mensajeErrorBuscarAcademia").textContent = r.error || "No se pudo continuar."; return; }
-    if (!r.alumnas.length) { el("mensajeErrorBuscarAcademia").textContent = "Esa academia todavía no tiene alumnas registradas."; return; }
+    if (!r.alumnas.length) { el("mensajeErrorBuscarAcademia").textContent = "Esa academia todavía no tiene alumnos registrados."; return; }
 
     alumnasParaElegir = { academiaId: r.academiaId, academiaNombre: nombreAcademia, alumnas: r.alumnas };
 
     const select = el("selectAlumnaPortal");
     select.innerHTML = r.alumnas.map((a) => `<option value="${a.id}">${escaparHtml(a.nombre)}</option>`).join("");
-    el("subtituloElegirAlumna").textContent = `Elige el nombre de tu hija en ${nombreAcademia} y escribe su contraseña del portal.`;
+    el("subtituloElegirAlumna").textContent = `Elige el nombre de tu hijo en ${nombreAcademia} y escribe su contraseña del portal.`;
     el("inputPortalClave").value = "";
     el("mensajeErrorEntrarPortal").textContent = "";
 
@@ -175,7 +175,7 @@ el("btnBuscarAcademia").addEventListener("click", async () => {
 el("btnVolverBuscarAcademia").addEventListener("click", mostrarPantallaBuscarAcademia);
 
 // ---------------------------------------------------------------
-// PASO 2: elegir alumna + contraseña → entrar
+// PASO 2: elegir alumno + contraseña → entrar
 // ---------------------------------------------------------------
 el("btnEntrarPortal").addEventListener("click", async () => {
   const alumnaId = Number(el("selectAlumnaPortal").value);
@@ -343,7 +343,7 @@ async function seleccionarAlumna(alumnaId) {
   try {
     const r = await llamar("portalConsultarAlumna", {});
     if (!r.success) {
-      // La sesión guardada para esta alumna ya no sirve (le cambiaron
+      // La sesión guardada para este alumno ya no sirve (le cambiaron
       // la clave desde otro lado, etc.) — se quita sola de este
       // dispositivo para no dejarla "pegada" sin funcionar.
       quitarAlumnaDelDispositivo(alumnaId, false);
@@ -438,7 +438,7 @@ function actualizarBotonPush() {
   const boton = el("btnActivarPush");
   if (activas.has(alumnaActivaId)) {
     boton.textContent = "🔕 Desactivar avisos de llegada";
-    el("textoEstadoPush").textContent = "Los avisos están ACTIVADOS para esta alumna en este dispositivo.";
+    el("textoEstadoPush").textContent = "Los avisos están ACTIVADOS para este alumno en este dispositivo.";
   } else {
     boton.textContent = "🔔 Activar avisos de llegada";
     el("textoEstadoPush").textContent = "Actívalos para que te avisemos apenas marque su entrada.";
@@ -453,8 +453,8 @@ el("btnActivarPush").addEventListener("click", async () => {
 
   try {
     if (activas.has(alumnaActivaId)) {
-      // Apagar solo para ESTA alumna (el dispositivo puede seguir
-      // suscrito para otra hermana).
+      // Apagar solo para ESTE alumno (el dispositivo puede seguir
+      // suscrito para otro hermano).
       const registro = await navigator.serviceWorker.getRegistration();
       const suscripcion = registro ? await registro.pushManager.getSubscription() : null;
       if (suscripcion) {
@@ -506,7 +506,7 @@ el("btnActivarPush").addEventListener("click", async () => {
 });
 
 // ---------------------------------------------------------------
-// Mi cuenta: correo de recuperación, cambiar contraseña, quitar alumna
+// Mi cuenta: correo de recuperación, cambiar contraseña, quitar alumno
 // ---------------------------------------------------------------
 el("btnGuardarEmailFamilia").addEventListener("click", async () => {
   const email = el("inputEmailFamiliaPortal").value.trim();
