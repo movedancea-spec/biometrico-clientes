@@ -11,6 +11,53 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="biometrico-style.css?v=63ca2105" />
+<script>
+// Aplica el color de marca de la última academia que se vio en ESTE
+// dispositivo (guardado en localStorage) ANTES de que se pinte la
+// página — así los papás nunca ven un parpadeo de rosado (el color por
+// defecto) que luego cambia al color de su academia. Es un duplicado
+// a propósito de aplicarMarca() en portal.js: ese vive abajo, junto
+// con el resto del código, y para cuando se ejecuta el navegador ya
+// pintó la página una vez con el color por defecto — demasiado tarde
+// para evitar el parpadeo. Este script, en cambio, corre antes de que
+// exista el <body>, así que el primer pintado ya sale con el color
+// correcto. Cuando cargue portal.js, aplicarMarca() vuelve a aplicar
+// el color (esta vez con los datos frescos del servidor) sin que se
+// note ningún cambio.
+(function () {
+  try {
+    var alumnas = JSON.parse(localStorage.getItem("biometrico_portal_alumnas") || "[]");
+    var activaId = localStorage.getItem("biometrico_portal_alumna_activa") || null;
+    var activa = alumnas.find(function (a) { return String(a.alumnaId) === String(activaId); }) || alumnas[0];
+    var color = activa && activa.colorMarca;
+    if (!color || !/^#[0-9a-fA-F]{6}$/.test(color)) return;
+
+    var hexARgb = function (hex) {
+      var limpio = hex.replace("#", "");
+      return [0, 2, 4].map(function (i) { return parseInt(limpio.substr(i, 2), 16); });
+    };
+    var rgbAHex = function (rgb) {
+      return "#" + rgb.map(function (c) { return Math.max(0, Math.min(255, Math.round(c))).toString(16).padStart(2, "0"); }).join("");
+    };
+    var mezclarConBlanco = function (hex, p) { return rgbAHex(hexARgb(hex).map(function (c) { return c + (255 - c) * p; })); };
+    var oscurecer = function (hex, p) { return rgbAHex(hexARgb(hex).map(function (c) { return c * (1 - p); })); };
+
+    var raiz = document.documentElement.style;
+    raiz.setProperty("--color-marca", color);
+    raiz.setProperty("--color-marca-oscuro", oscurecer(color, 0.15));
+    raiz.setProperty("--color-marca-suave", mezclarConBlanco(color, 0.88));
+    raiz.setProperty("--color-marca-suave2", mezclarConBlanco(color, 0.82));
+    raiz.setProperty("--color-marca-suave3", mezclarConBlanco(color, 0.75));
+    raiz.setProperty("--color-marca-fondo", mezclarConBlanco(color, 0.96));
+    raiz.setProperty("--color-marca-fondo2", mezclarConBlanco(color, 0.94));
+    raiz.setProperty("--color-marca-fondo3", mezclarConBlanco(color, 0.92));
+    raiz.setProperty("--color-marca-texto-suave", oscurecer(color, 0.25));
+  } catch (e) {
+    // Sin localStorage o dato corrupto — se queda con el color por
+    // defecto, igual que antes. No es grave, no truena nada.
+  }
+})();
+</script>
 </head>
 <body>
 
