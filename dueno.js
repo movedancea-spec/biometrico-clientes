@@ -10,7 +10,7 @@ const API_URL = "https://biometrico-saas.movedancea.workers.dev";
 // nueva de los archivos — ver verificarActualizacion() al final de
 // este archivo. NO cambiar este valor a mano: lo actualiza el script
 // actualizar-versiones.mjs cada vez que algo cambia.
-const VERSION_APP = "a9d6451c06e4";
+const VERSION_APP = "59e75fabac0c";
 
 const el = (id) => document.getElementById(id);
 
@@ -137,6 +137,7 @@ function pintarAcademias(academias) {
         <div class="detalle-item">
           <span class="etiqueta-estado ${a.activo ? "activa" : "inactiva"}">${a.activo ? "Activa" : "Desactivada"}</span>
           &nbsp;·&nbsp; ${a.cantidadAlumnas} / ${a.limite_alumnas} alumnos
+          &nbsp;·&nbsp; ${a.cantidadDispositivos} / ${a.limite_dispositivos} dispositivos
           &nbsp;·&nbsp; Q${Number(a.mensualidad || 0).toFixed(2)}/mes
           &nbsp;·&nbsp; <span class="etiqueta-estado ${a.pago_al_dia ? "activa" : "inactiva"}">${a.pago_al_dia ? "Al día" : "Debe mensualidad"}</span>
         </div>
@@ -188,6 +189,7 @@ function abrirModalEditarAcademia(academia) {
   el("inputEditarNombreAcademia").value = academia.nombre;
   el("inputEditarClaveAcademia").value = "";
   el("inputEditarLimite").value = academia.limite_alumnas;
+  el("inputEditarLimiteDispositivos").value = academia.limite_dispositivos || 1;
   el("inputEditarEmailAcademia").value = academia.email || "";
   el("inputEditarMensualidad").value = academia.mensualidad || 0;
   el("textoEstadoPagoAcademia").textContent = academia.pago_al_dia
@@ -196,6 +198,7 @@ function abrirModalEditarAcademia(academia) {
   el("mensajeErrorEditarAcademia").textContent = "";
   el("modalEditarAcademia").hidden = false;
   cargarHistorialPagos(academia.id);
+  cargarDispositivos(academia.id);
 }
 
 // ---------------------------------------------------------------
@@ -253,6 +256,66 @@ function pintarHistorialPagos(pagos) {
   });
 }
 
+// ---------------------------------------------------------------
+// DISPOSITIVOS ACTIVADOS (tablets que ya iniciaron sesión) — permite
+// "liberar" uno para que la academia pueda activar una tablet nueva
+// sin necesidad de subirle el límite.
+// ---------------------------------------------------------------
+async function cargarDispositivos(academiaId) {
+  const cont = el("listaDispositivos");
+  cont.innerHTML = '<p class="lista-vacia">Cargando dispositivos...</p>';
+  try {
+    const r = await llamar("duenoListarDispositivos", { claveDueno, academiaId });
+    if (academiaId !== academiaEditandoId) return;
+    if (!r.success) {
+      cont.innerHTML = `<p class="lista-vacia">${escaparHtml(r.error || "No se pudo cargar la lista de dispositivos.")}</p>`;
+      return;
+    }
+    pintarDispositivos(r.dispositivos, academiaId);
+  } catch (e) {
+    if (academiaId !== academiaEditandoId) return;
+    cont.innerHTML = '<p class="lista-vacia">No se pudo cargar la lista. Revisa tu conexión.</p>';
+  }
+}
+
+function pintarDispositivos(dispositivos, academiaId) {
+  const cont = el("listaDispositivos");
+  if (!dispositivos || !dispositivos.length) {
+    cont.innerHTML = '<p class="lista-vacia">Todavía no se ha activado ningún dispositivo para esta academia.</p>';
+    return;
+  }
+
+  cont.innerHTML = "";
+  dispositivos.forEach((d, i) => {
+    const div = document.createElement("div");
+    div.className = "tarjeta-item";
+    div.innerHTML = `
+      <div class="info-principal">
+        <div class="nombre-item">Dispositivo ${i + 1}</div>
+        <div class="detalle-item">
+          Activado el ${escaparHtml(d.creado_en)} UTC
+          &nbsp;·&nbsp; usado por última vez el ${escaparHtml(d.ultimo_uso_en)} UTC
+        </div>
+      </div>
+      <div class="acciones-item">
+        <button class="btn peligro chico" data-accion="liberar">Liberar</button>
+      </div>
+    `;
+    div.querySelector('[data-accion="liberar"]').addEventListener("click", async () => {
+      if (!window.confirm(`¿Liberar este dispositivo? La tablet que lo tenía activado deja de "ocupar cupo" — si vuelve a iniciar sesión desde cero, contará como una tablet nueva.`)) return;
+      try {
+        const r = await llamar("duenoLiberarDispositivo", { claveDueno, dispositivoId: d.id });
+        if (!r.success) { alert(r.error || "No se pudo liberar."); return; }
+        cargarDispositivos(academiaId);
+        cargarAcademias();
+      } catch (e) {
+        alert("No se pudo conectar. Inténtalo de nuevo.");
+      }
+    });
+    cont.appendChild(div);
+  });
+}
+
 el("btnMarcarPagadoManual").addEventListener("click", async () => {
   if (!window.confirm(`¿Marcar a "${academiaEditandoNombre}" como al día, aunque no haya llegado el pago por Paggo (por ejemplo, si te pagó en efectivo o transferencia)?`)) return;
 
@@ -272,6 +335,7 @@ el("btnGuardarEditarAcademia").addEventListener("click", async () => {
   const nombre = el("inputEditarNombreAcademia").value.trim();
   const claveNueva = el("inputEditarClaveAcademia").value.trim();
   const nuevoLimite = Number(el("inputEditarLimite").value);
+  const nuevoLimiteDispositivos = Number(el("inputEditarLimiteDispositivos").value);
   const email = el("inputEditarEmailAcademia").value.trim();
   const mensualidad = Number(el("inputEditarMensualidad").value) || 0;
 
@@ -279,6 +343,7 @@ el("btnGuardarEditarAcademia").addEventListener("click", async () => {
 
   if (!nombre) { el("mensajeErrorEditarAcademia").textContent = "El nombre no puede quedar vacío."; return; }
   if (!nuevoLimite || nuevoLimite < 1) { el("mensajeErrorEditarAcademia").textContent = "Escribe un límite de alumnos válido."; return; }
+  if (!nuevoLimiteDispositivos || nuevoLimiteDispositivos < 1) { el("mensajeErrorEditarAcademia").textContent = "Escribe un límite de dispositivos válido."; return; }
   if (claveNueva && claveNueva.length < 4) { el("mensajeErrorEditarAcademia").textContent = "La contraseña nueva debe tener al menos 4 caracteres."; return; }
   if (mensualidad < 0) { el("mensajeErrorEditarAcademia").textContent = "La mensualidad no puede ser negativa."; return; }
 
@@ -289,6 +354,7 @@ el("btnGuardarEditarAcademia").addEventListener("click", async () => {
       academiaId: academiaEditandoId,
       nombre,
       limite: nuevoLimite,
+      limiteDispositivos: nuevoLimiteDispositivos,
       email,
       mensualidad,
       ...(claveNueva ? { clave: claveNueva } : {}),
@@ -323,6 +389,7 @@ el("btnCrearAcademia").addEventListener("click", async () => {
   const nombre = el("inputNuevaAcademiaNombre").value.trim();
   const clave = el("inputNuevaAcademiaClave").value.trim();
   const limite = Number(el("inputNuevaAcademiaLimite").value) || 150;
+  const limiteDispositivos = Number(el("inputNuevaAcademiaLimiteDispositivos").value) || 1;
   const email = el("inputNuevaAcademiaEmail").value.trim();
   const mensualidad = Number(el("inputNuevaAcademiaMensualidad").value) || 0;
 
@@ -334,12 +401,13 @@ el("btnCrearAcademia").addEventListener("click", async () => {
 
   el("btnCrearAcademia").disabled = true;
   try {
-    const r = await llamar("duenoCrearAcademia", { claveDueno, nombre, clave, limite, email, mensualidad });
+    const r = await llamar("duenoCrearAcademia", { claveDueno, nombre, clave, limite, limiteDispositivos, email, mensualidad });
     if (!r.success) { el("mensajeErrorCrear").textContent = r.error || "No se pudo crear."; return; }
     el("mensajeExitoCrear").textContent = `Academia "${nombre}" creada. Avísales el nombre y la contraseña para que entren a su panel.`;
     el("inputNuevaAcademiaNombre").value = "";
     el("inputNuevaAcademiaClave").value = "";
     el("inputNuevaAcademiaLimite").value = "150";
+    el("inputNuevaAcademiaLimiteDispositivos").value = "1";
     el("inputNuevaAcademiaEmail").value = "";
     el("inputNuevaAcademiaMensualidad").value = "";
     cargarAcademias();

@@ -14,7 +14,7 @@ const API_URL = "https://biometrico-saas.movedancea.workers.dev";
 // nueva de los archivos — ver verificarActualizacion() al final de
 // este archivo. NO cambiar este valor a mano: lo actualiza el script
 // actualizar-versiones.mjs cada vez que algo cambia.
-const VERSION_APP = "a9d6451c06e4";
+const VERSION_APP = "59e75fabac0c";
 
 const el = (id) => document.getElementById(id);
 
@@ -26,6 +26,27 @@ document.body.classList.add("modo-kiosko");
 
 function urlFoto(fotoKey) {
   return fotoKey ? `${API_URL}/foto?key=${encodeURIComponent(fotoKey)}` : "";
+}
+
+// ---------------------------------------------------------------
+// TOKEN DE ESTE DISPOSITIVO — identifica a ESTA tablet/navegador de
+// forma única, para el control de "cuántos dispositivos a la vez"
+// (ver academiaLogin en worker.js). Se genera UNA sola vez, la
+// primera vez que esta tablet se usa, y se queda guardado para
+// siempre en su memoria local — así, aunque se cierre sesión y se
+// vuelva a entrar, el sistema la sigue reconociendo como LA MISMA
+// tablet (no le vuelve a "gastar" un cupo de dispositivo). Es
+// independiente de la sesión (biometrico_sesion_kiosko): no se borra
+// al darle "Salir".
+function obtenerOCrearTokenDispositivo() {
+  let token = localStorage.getItem("biometrico_dispositivo_token");
+  if (token) return token;
+
+  token = (crypto && crypto.randomUUID)
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
+  localStorage.setItem("biometrico_dispositivo_token", token);
+  return token;
 }
 
 function escaparHtml(t) {
@@ -146,7 +167,7 @@ async function refrescarMarcaEnSilencio() {
     const resp = await fetch(API_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ accion: "academiaLogin", nombre: sesion.nombre, clave: sesion.clave }),
+      body: JSON.stringify({ accion: "academiaLogin", nombre: sesion.nombre, clave: sesion.clave, dispositivoToken: obtenerOCrearTokenDispositivo() }),
     });
     const r = await resp.json();
     if (!r.success) return; // si falla (ej. desactivada), no se interrumpe el kiosko por esto
@@ -190,7 +211,7 @@ async function intentarEntrar() {
     const resp = await fetch(API_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ accion: "academiaLogin", nombre, clave }),
+      body: JSON.stringify({ accion: "academiaLogin", nombre, clave, dispositivoToken: obtenerOCrearTokenDispositivo() }),
     });
     const r = await resp.json();
     if (!r.success) {
