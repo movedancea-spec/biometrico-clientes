@@ -11,6 +11,7 @@ const el = (id) => document.getElementById(id);
 let sesion = null; // { academiaId, clave, nombre, limiteAlumnas }
 let alumnaEditandoId = null;
 let fotoNuevaBase64 = null; // usada tanto para crear como para editar (se limpia entre usos)
+let intervaloAlumnas = null; // refresca sola la lista de alumnas (asistencias en tiempo casi real)
 
 function urlFoto(fotoKey) {
   return fotoKey ? `${API_URL}/foto?key=${encodeURIComponent(fotoKey)}` : "";
@@ -188,11 +189,35 @@ function mostrarPanel() {
   el("inputEmailCuenta").value = sesion.email || "";
   cargarAlumnas();
   cargarMensualidad();
+  iniciarActualizacionAutomatica();
+}
+
+// Refresca sola la lista de alumnas cada pocos segundos mientras el
+// panel está abierto, para que cuando una alumna marque su entrada en
+// la tablet (biometrico.html), el conteo de "clases este mes" se
+// actualice aquí SOLO, sin que Ana o la academia tengan que darle
+// refresh a la página. Se detiene al salir de la sesión, y se pausa
+// mientras la pestaña está en segundo plano para no gastar de más.
+function iniciarActualizacionAutomatica() {
+  detenerActualizacionAutomatica();
+  intervaloAlumnas = setInterval(() => {
+    if (document.hidden) return; // pestaña en segundo plano — no molesta con llamadas de más
+    if (!el("modalAlumna").hidden) return; // no refrescar la lista mientras se está editando una alumna
+    cargarAlumnas();
+  }, 15000);
+}
+
+function detenerActualizacionAutomatica() {
+  if (intervaloAlumnas) {
+    clearInterval(intervaloAlumnas);
+    intervaloAlumnas = null;
+  }
 }
 
 function volverALogin(mensaje) {
   sesion = null;
   localStorage.removeItem("biometrico_sesion_academia");
+  detenerActualizacionAutomatica();
   el("pantallaPanel").hidden = true;
   el("pantallaLogin").hidden = false;
   aplicarMarca(null);
