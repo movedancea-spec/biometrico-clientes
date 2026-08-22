@@ -187,10 +187,26 @@ function mostrarPanel() {
   aplicarLogoEnHeader(sesion.logoKey);
   el("inputColorMarca").value = sesion.colorMarca || "#ef4b9b";
   el("inputEmailCuenta").value = sesion.email || "";
+  // El link ya trae el id de ESTA academia (?academia=...) para que a
+  // los papás el Portal de Alumnos les abra directo en su academia,
+  // sin tener que buscarla ni escribir el nombre.
+  el("linkPortalAlumnos").href = new URL(`portal.html?academia=${sesion.academiaId}`, location.href).href;
   cargarAlumnas();
   cargarMensualidad();
   iniciarActualizacionAutomatica();
 }
+
+el("btnCopiarLinkPortal").addEventListener("click", async () => {
+  const link = el("linkPortalAlumnos").href;
+  const mensaje = el("mensajeCopiadoLinkPortal");
+  try {
+    await navigator.clipboard.writeText(link);
+    mensaje.textContent = "¡Enlace copiado! Ya lo puedes pegar y mandar por WhatsApp.";
+  } catch (e) {
+    mensaje.textContent = `No se pudo copiar solo — cópialo a mano: ${link}`;
+  }
+  setTimeout(() => { mensaje.textContent = ""; }, 6000);
+});
 
 // Refresca sola la lista de alumnos Y el estado de la mensualidad
 // cada pocos segundos mientras el panel está abierto — así, sin que

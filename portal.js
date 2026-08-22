@@ -152,6 +152,14 @@ function guardarAlumnasConNotificacionesActivas(set) {
 // ---------------------------------------------------------------
 // PASO 1: buscar academia
 // ---------------------------------------------------------------
+// Cuando el link trae "?academia=ID" (el que cada academia comparte
+// con sus papás desde su panel), se salta esta pantalla por completo
+// y se va directo al paso 2 ya con los datos de ESA academia — así
+// nadie tiene que escribir ni adivinar un nombre, y de paso no queda
+// a la vista un buscador con el que cualquiera podría fisgonear si
+// otra academia también usa este sistema.
+let llegoPorLinkDirecto = false;
+
 function mostrarPantallaBuscarAcademia() {
   el("pantallaBuscarAcademia").hidden = false;
   el("pantallaElegirAlumna").hidden = true;
@@ -160,6 +168,55 @@ function mostrarPantallaBuscarAcademia() {
   el("pantallaPortalPanel").hidden = true;
   el("inputPortalAcademia").value = "";
   el("mensajeErrorBuscarAcademia").textContent = "";
+}
+
+function mostrarPaso2ConAlumnas(academiaId, academiaNombre, alumnas) {
+  alumnasParaElegir = { academiaId, academiaNombre, alumnas };
+
+  const select = el("selectAlumnaPortal");
+  select.innerHTML = alumnas.map((a) => `<option value="${a.id}">${escaparHtml(a.nombre)}</option>`).join("");
+  el("subtituloElegirAlumna").textContent = `Elige el nombre de tu hijo en ${academiaNombre} y escribe su contraseña del portal.`;
+  el("inputPortalClave").value = "";
+  el("mensajeErrorEntrarPortal").textContent = "";
+
+  el("pantallaBuscarAcademia").hidden = true;
+  el("pantallaOlvidePortal").hidden = true;
+  el("pantallaRestablecerPortal").hidden = true;
+  el("pantallaPortalPanel").hidden = true;
+  el("pantallaElegirAlumna").hidden = false;
+
+  // Si llegaron por el link directo de su academia, no tiene caso
+  // ofrecerles "cambiar de academia" — ese botón solo aplica para
+  // quien entró buscando el nombre a mano.
+  el("btnVolverBuscarAcademia").hidden = llegoPorLinkDirecto;
+}
+
+async function cargarAlumnasPorAcademiaId(academiaId) {
+  try {
+    const r = await fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ accion: "portalListarAlumnas", academiaId }),
+    }).then((resp) => resp.json());
+
+    if (!r.success || !r.alumnas.length) {
+      // El link ya no sirve (academia borrada/desactivada, o todavía
+      // sin alumnos) — se cae de vuelta a la pantalla de buscar, con
+      // el aviso correspondiente, en vez de dejar al papá atorado.
+      llegoPorLinkDirecto = false;
+      mostrarPantallaBuscarAcademia();
+      el("mensajeErrorBuscarAcademia").textContent = !r.success
+        ? (r.error || "No se pudo abrir el portal de esa academia.")
+        : "Esa academia todavía no tiene alumnos registrados.";
+      return;
+    }
+
+    mostrarPaso2ConAlumnas(r.academiaId, r.academiaNombre, r.alumnas);
+  } catch (e) {
+    llegoPorLinkDirecto = false;
+    mostrarPantallaBuscarAcademia();
+    el("mensajeErrorBuscarAcademia").textContent = "No se pudo conectar. Revisa tu conexión.";
+  }
 }
 
 el("btnBuscarAcademia").addEventListener("click", async () => {
@@ -178,16 +235,8 @@ el("btnBuscarAcademia").addEventListener("click", async () => {
     if (!r.success) { el("mensajeErrorBuscarAcademia").textContent = r.error || "No se pudo continuar."; return; }
     if (!r.alumnas.length) { el("mensajeErrorBuscarAcademia").textContent = "Esa academia todavía no tiene alumnos registrados."; return; }
 
-    alumnasParaElegir = { academiaId: r.academiaId, academiaNombre: nombreAcademia, alumnas: r.alumnas };
-
-    const select = el("selectAlumnaPortal");
-    select.innerHTML = r.alumnas.map((a) => `<option value="${a.id}">${escaparHtml(a.nombre)}</option>`).join("");
-    el("subtituloElegirAlumna").textContent = `Elige el nombre de tu hijo en ${nombreAcademia} y escribe su contraseña del portal.`;
-    el("inputPortalClave").value = "";
-    el("mensajeErrorEntrarPortal").textContent = "";
-
-    el("pantallaBuscarAcademia").hidden = true;
-    el("pantallaElegirAlumna").hidden = false;
+    llegoPorLinkDirecto = false;
+    mostrarPaso2ConAlumnas(r.academiaId, r.academiaNombre || nombreAcademia, r.alumnas);
   } catch (e) {
     el("mensajeErrorBuscarAcademia").textContent = "No se pudo conectar. Revisa tu conexión.";
   } finally {
@@ -195,7 +244,10 @@ el("btnBuscarAcademia").addEventListener("click", async () => {
   }
 });
 
-el("btnVolverBuscarAcademia").addEventListener("click", mostrarPantallaBuscarAcademia);
+el("btnVolverBuscarAcademia").addEventListener("click", () => {
+  llegoPorLinkDirecto = false;
+  mostrarPantallaBuscarAcademia();
+});
 
 // ---------------------------------------------------------------
 // PASO 2: elegir alumno + contraseña → entrar
@@ -237,7 +289,10 @@ el("btnEntrarPortal").addEventListener("click", async () => {
   }
 });
 
-el("btnAgregarOtraAlumna").addEventListener("click", mostrarPantallaBuscarAcademia);
+el("btnAgregarOtraAlumna").addEventListener("click", () => {
+  llegoPorLinkDirecto = false;
+  mostrarPantallaBuscarAcademia();
+});
 
 // ---------------------------------------------------------------
 // "Olvidé mi contraseña" del portal
@@ -691,6 +746,26 @@ async function quitarAlumnaDelDispositivo(alumnaId, avisarPush) {
   }
 
   cargarAlumnasDeDisco();
-  if (alumnasGuardadas.length) mostrarPanel();
-  else mostrarPantallaBuscarAcademia();
+
+  // "?academia=ID" es el link que cada academia comparte con sus
+  // papás desde su panel — lleva directo al paso 2 (elegir alumno) de
+  // ESA academia, sin buscador de por medio. Si en este dispositivo ya
+  // hay un alumno guardado de esa misma academia, se ignora el link y
+  // se muestra el panel normal (no tiene caso volver a pedir clave);
+  // si es la primera vez (o es para agregar un segundo hijo de otra
+  // academia), se va directo al paso 2.
+  const academiaDelLink = Number(params.get("academia")) || null;
+  const yaTieneAlumnaDeEsaAcademia = academiaDelLink
+    && alumnasGuardadas.some((a) => Number(a.academiaId) === academiaDelLink);
+
+  if (academiaDelLink && !yaTieneAlumnaDeEsaAcademia) {
+    llegoPorLinkDirecto = true;
+    el("pantallaBuscarAcademia").hidden = true;
+    el("pantallaPortalPanel").hidden = true;
+    cargarAlumnasPorAcademiaId(academiaDelLink);
+  } else if (alumnasGuardadas.length) {
+    mostrarPanel();
+  } else {
+    mostrarPantallaBuscarAcademia();
+  }
 })();
