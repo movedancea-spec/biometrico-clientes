@@ -192,6 +192,7 @@ function abrirModalEditarAcademia(academia) {
   el("inputEditarLimiteDispositivos").value = academia.limite_dispositivos || 1;
   el("inputEditarEmailAcademia").value = academia.email || "";
   el("inputEditarMensualidad").value = academia.mensualidad || 0;
+  el("inputEditarTipoCliente").value = academia.tipo_cliente || "academia";
   el("textoEstadoPagoAcademia").textContent = academia.pago_al_dia
     ? "Este mes está al día."
     : "Debe la mensualidad de este mes (o de un mes anterior).";
