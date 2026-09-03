@@ -185,6 +185,23 @@ function cargarSesionGuardada() {
   }
 }
 
+function ajustarInterfazSegunTipo() {
+  const esEmpresa = sesion?.tipoCliente === "empresa";
+  el("campoClasesAlumno").hidden = esEmpresa;
+  el("campoHoraEntradaEmpresa").hidden = !esEmpresa;
+  el("campoHoraSalidaEmpresa").hidden = !esEmpresa;
+  document.querySelectorAll("h2").forEach((h) => {
+    if (h.textContent.includes("Agregar alumno")) {
+      h.innerHTML = h.innerHTML.replace("Agregar alumno", esEmpresa ? "Agregar empleado" : "Agregar alumno");
+    }
+    if (h.textContent.includes("Alumnos")) {
+      h.innerHTML = h.innerHTML.replace("Alumnos", esEmpresa ? "Empleados" : "Alumnos");
+    }
+  });
+  el("inputNuevaAlumnaNombre").placeholder = esEmpresa ? "Nombre del empleado" : "Nombre del alumno";
+  el("btnCrearAlumna").textContent = esEmpresa ? "Agregar empleado" : "Agregar alumno";
+}
+
 function mostrarPanel() {
   el("pantallaLogin").hidden = true;
   el("pantallaPanel").hidden = false;
@@ -198,6 +215,7 @@ function mostrarPanel() {
   // sin tener que buscarla ni escribir el nombre.
   el("linkPortalAlumnos").href = new URL(`portal.html?academia=${sesion.academiaId}`, location.href).href;
   cargarAlumnas();
+  ajustarInterfazSegunTipo();
   cargarMensualidad();
   iniciarActualizacionAutomatica();
 }
@@ -656,6 +674,9 @@ el("btnCrearAlumna").addEventListener("click", async () => {
   const nombre = el("inputNuevaAlumnaNombre").value.trim();
   const clasesPorMes = Number(el("inputNuevaAlumnaClases").value) || 8;
   const archivo = el("inputNuevaAlumnaFoto").files[0] || null;
+  const horaEntradaEsperada = el("inputNuevaAlumnaHoraEntrada").value || null;
+  const horaSalidaEsperada = el("inputNuevaAlumnaHoraSalida").value || null;
+  const esEmpresaCrear = sesion?.tipoCliente === "empresa";
 
   el("mensajeErrorCrear").textContent = "";
   el("mensajeExitoCrear").textContent = "";
@@ -665,7 +686,7 @@ el("btnCrearAlumna").addEventListener("click", async () => {
   el("btnCrearAlumna").disabled = true;
   try {
     const fotoBase64 = await redimensionarImagen(archivo);
-    const r = await llamar("academiaCrearAlumna", { nombre, clasesPorMes, fotoBase64 });
+    const r = await llamar("academiaCrearAlumna", esEmpresaCrear ? { nombre, horaEntradaEsperada, horaSalidaEsperada, fotoBase64 } : { nombre, clasesPorMes, fotoBase64 });
     if (!r.success) {
       el("mensajeErrorCrear").textContent = r.error || "No se pudo agregar.";
       return;
