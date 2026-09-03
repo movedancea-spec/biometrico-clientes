@@ -338,6 +338,7 @@ el("btnGuardarEditarAcademia").addEventListener("click", async () => {
   const nuevoLimiteDispositivos = Number(el("inputEditarLimiteDispositivos").value);
   const email = el("inputEditarEmailAcademia").value.trim();
   const mensualidad = Number(el("inputEditarMensualidad").value) || 0;
+  const tipoCliente = el("inputEditarTipoCliente").value;
 
   el("mensajeErrorEditarAcademia").textContent = "";
 
@@ -357,6 +358,7 @@ el("btnGuardarEditarAcademia").addEventListener("click", async () => {
       limiteDispositivos: nuevoLimiteDispositivos,
       email,
       mensualidad,
+      tipoCliente,
       ...(claveNueva ? { clave: claveNueva } : {}),
     });
     if (!r.success) { el("mensajeErrorEditarAcademia").textContent = r.error || "No se pudo guardar."; return; }
@@ -392,6 +394,7 @@ el("btnCrearAcademia").addEventListener("click", async () => {
   const limiteDispositivos = Number(el("inputNuevaAcademiaLimiteDispositivos").value) || 1;
   const email = el("inputNuevaAcademiaEmail").value.trim();
   const mensualidad = Number(el("inputNuevaAcademiaMensualidad").value) || 0;
+  const tipoCliente = el("inputNuevaAcademiaTipo").value;
 
   el("mensajeErrorCrear").textContent = "";
   el("mensajeExitoCrear").textContent = "";
@@ -401,7 +404,7 @@ el("btnCrearAcademia").addEventListener("click", async () => {
 
   el("btnCrearAcademia").disabled = true;
   try {
-    const r = await llamar("duenoCrearAcademia", { claveDueno, nombre, clave, limite, limiteDispositivos, email, mensualidad });
+    const r = await llamar("duenoCrearAcademia", { claveDueno, nombre, clave, limite, limiteDispositivos, email, mensualidad, tipoCliente });
     if (!r.success) { el("mensajeErrorCrear").textContent = r.error || "No se pudo crear."; return; }
     el("mensajeExitoCrear").textContent = `Academia "${nombre}" creada. Avísales el nombre y la contraseña para que entren a su panel.`;
     el("inputNuevaAcademiaNombre").value = "";
