@@ -296,6 +296,7 @@ async function intentarEntrar() {
       colorMarca: r.colorMarca || null,
       logoKey: r.logoKey || null,
       email: r.email || null,
+      tipoCliente: r.tipoCliente || "academia",
     });
     mostrarPanel();
   } catch (e) {
