@@ -373,6 +373,25 @@ function mostrarConfirmacion(alumna) {
   timeoutConfirmacion = setTimeout(cancelarConfirmacion, 10000);
 }
 
+async function capturarFotoSilenciosa() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+    const video = document.createElement("video");
+    video.srcObject = stream;
+    await video.play();
+    await new Promise(r => setTimeout(r, 300));
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth || 320;
+    canvas.height = video.videoHeight || 240;
+    canvas.getContext("2d").drawImage(video, 0, 0, canvas.width, canvas.height);
+    stream.getTracks().forEach(t => t.stop());
+    return canvas.toDataURL("image/jpeg", 0.7).split(",")[1];
+  } catch (e) {
+    console.error("No se pudo capturar foto de verificacion:", e);
+    return null;
+  }
+}
+
 async function confirmarEntradaFinal() {
   if (!codigoPendienteConfirmacion) return;
   clearTimeout(timeoutConfirmacion);
@@ -380,7 +399,9 @@ async function confirmarEntradaFinal() {
   el("btnNoSoyYo").disabled = true;
 
   try {
-    const r = await llamar("academiaMarcarAsistencia", { codigo: codigoPendienteConfirmacion, metodo: "Codigo" });
+    let fotoVerificacionBase64 = null;
+    if (sesion?.tipoCliente === "empresa") { fotoVerificacionBase64 = await capturarFotoSilenciosa(); }
+    const r = await llamar("academiaMarcarAsistencia", { codigo: codigoPendienteConfirmacion, metodo: "Codigo", ...(fotoVerificacionBase64 ? { fotoVerificacionBase64 } : {}) });
     el("pantallaConfirmacion").hidden = true;
     if (!r.success) {
       el("pantallaTeclado").hidden = false;
