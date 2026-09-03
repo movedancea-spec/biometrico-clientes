@@ -134,9 +134,10 @@ function pintarAcademias(academias) {
     div.innerHTML = `
       <div class="info-principal">
         <div class="nombre-item">${escaparHtml(a.nombre)}</div>
+        <span class="etiqueta-estado ${a.tipo_cliente === "empresa" ? "inactiva" : "activa"}" style="margin-left:6px;">${a.tipo_cliente === "empresa" ? "🏢 Empresa" : "💃 Academia"}</span>
         <div class="detalle-item">
           <span class="etiqueta-estado ${a.activo ? "activa" : "inactiva"}">${a.activo ? "Activa" : "Desactivada"}</span>
-          &nbsp;·&nbsp; ${a.cantidadAlumnas} / ${a.limite_alumnas} alumnos
+          &nbsp;·&nbsp; ${a.cantidadAlumnas} / ${a.limite_alumnas} ${a.tipo_cliente === "empresa" ? "empleados" : "alumnos"}
           &nbsp;·&nbsp; ${a.cantidadDispositivos} / ${a.limite_dispositivos} dispositivos
           &nbsp;·&nbsp; Q${Number(a.mensualidad || 0).toFixed(2)}/mes
           &nbsp;·&nbsp; <span class="etiqueta-estado ${a.pago_al_dia ? "activa" : "inactiva"}">${a.pago_al_dia ? "Al día" : "Debe mensualidad"}</span>
