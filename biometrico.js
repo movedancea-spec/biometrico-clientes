@@ -442,7 +442,7 @@ function mostrarBienvenida(r) {
     <div class="kiosko-bienvenida">
       ${foto}
       <div class="mensaje-bienvenida">¡Bienvenido, ${escaparHtml(r.alumna.nombre)}!</div>
-      <div class="detalle-bienvenida">Asistencia marcada — ${r.clasesEsteMes} / ${r.clasesPorMes} clases este mes.</div>
+      <div class="detalle-bienvenida">${sesion?.tipoCliente === "empresa" ? "Asistencia marcada." : `Asistencia marcada — ${r.clasesEsteMes} / ${r.clasesPorMes} clases este mes.`}</div>
     </div>
   `;
 
