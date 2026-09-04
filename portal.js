@@ -333,11 +333,13 @@ el("btnEntrarPortal").addEventListener("click", async () => {
       alumnaId: r.alumnaId, clave, nombre: r.nombre, codigo: r.codigo, fotoKey: r.fotoKey,
       clasesPorMes: r.clasesPorMes, academiaId: r.academiaId, academiaNombre: r.academiaNombre,
       colorMarca: r.colorMarca, logoKey: r.logoKey,
+      tipoCliente: r.tipoCliente || "academia",
     };
     alumnasGuardadas = alumnasGuardadas.filter((a) => a.alumnaId !== entrada.alumnaId);
     alumnasGuardadas.push(entrada);
     alumnaActivaId = entrada.alumnaId;
     guardarAlumnasEnDisco();
+    ajustarInterfazPortalSegunTipo();
 
     mostrarPanel();
   } catch (e) {
@@ -506,7 +508,9 @@ async function seleccionarAlumna(alumnaId) {
     entrada.nombre = r.nombre; entrada.codigo = r.codigo; entrada.fotoKey = r.fotoKey;
     entrada.clasesPorMes = r.clasesPorMes; entrada.colorMarca = r.academia.colorMarca; entrada.logoKey = r.academia.logoKey;
     entrada.academiaNombre = r.academia.nombre;
+    entrada.tipoCliente = r.academia.tipoCliente || "academia";
     guardarAlumnasEnDisco();
+    ajustarInterfazPortalSegunTipo();
 
     aplicarMarca(entrada.colorMarca);
     aplicarLogoEnHeader(entrada.logoKey);
@@ -522,6 +526,21 @@ async function seleccionarAlumna(alumnaId) {
 
   cargarHistorialMeses();
   cargarHistorialEntradas();
+}
+
+function ajustarInterfazPortalSegunTipo() {
+  const alumna = alumnasGuardadas.find((a) => a.alumnaId === alumnaActivaId);
+  const esEmpresa = alumna?.tipoCliente === "empresa";
+  const bloqueClases = el("bloqueClasesEsteMes");
+  if (bloqueClases) bloqueClases.hidden = esEmpresa;
+  const panelHistorial = el("panelHistorialMeses");
+  if (panelHistorial) panelHistorial.hidden = esEmpresa;
+  const etiquetaHistorialEntradas = el("etiquetaHistorialEntradas");
+  if (etiquetaHistorialEntradas) etiquetaHistorialEntradas.textContent = esEmpresa ? "" : "a la academia";
+  const etiquetaQuitar = el("etiquetaQuitarAlumno");
+  if (etiquetaQuitar) etiquetaQuitar.textContent = esEmpresa ? "este empleado" : "este alumno";
+  const btnAgregar = el("btnAgregarOtraAlumna");
+  if (btnAgregar) btnAgregar.textContent = esEmpresa ? "+ Agregar otro empleado" : "+ Agregar otro alumno";
 }
 
 function pintarFotoAlumna(fotoKey) {

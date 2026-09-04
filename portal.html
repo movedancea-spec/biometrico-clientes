@@ -127,7 +127,7 @@
       </div>
     </div>
 
-    <div class="grid-stats" style="margin-top:16px;">
+    <div class="grid-stats" style="margin-top:16px;" id="bloqueClasesEsteMes">
       <div class="stat-caja">
         <div class="stat-numero" id="statClasesEsteMes">—</div>
         <div class="stat-etiqueta">Clases este mes</div>
@@ -139,7 +139,7 @@
     <p class="mensaje-error" id="mensajeErrorPush"></p>
   </div>
 
-  <div class="panel">
+  <div class="panel" id="panelHistorialMeses">
     <h2>📅 Historial de asistencias (por mes)</h2>
     <p class="ayuda">Cuántas clases fue cada mes, contra las que le tocan según su plan.</p>
     <div class="lista-tarjetas" id="listaHistorialMeses">
@@ -148,7 +148,7 @@
   </div>
 
   <div class="panel">
-    <h2>🕐 Historial de entradas a la academia</h2>
+    <h2>🕐 Historial de entradas <span id="etiquetaHistorialEntradas">a la academia</span></h2>
     <p class="ayuda">Cada marcación, con la hora exacta en que llegó.</p>
     <div class="lista-tarjetas" id="listaHistorialEntradas">
       <p class="lista-vacia">Cargando...</p>
@@ -187,7 +187,7 @@
 
     <hr style="border:none; border-top:1px solid var(--color-marca-suave2); margin:20px 0;" />
 
-    <button class="btn peligro" id="btnQuitarAlumnaPortal" type="button">Quitar a este alumno de este dispositivo</button>
+    <button class="btn peligro" id="btnQuitarAlumnaPortal" type="button">Quitar a <span id="etiquetaQuitarAlumno">este alumno</span> de este dispositivo</button>
     <p class="ayuda" style="margin-top:8px;">Esto NO borra su historial ni su cuenta — solo deja de aparecer aquí en este teléfono/computadora. Puedes volver a agregarla cuando quieras con su contraseña.</p>
   </div>
 
