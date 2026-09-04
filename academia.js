@@ -200,6 +200,9 @@ function ajustarInterfazSegunTipo() {
   });
   el("inputNuevaAlumnaNombre").placeholder = esEmpresa ? "Nombre del empleado" : "Nombre del alumno";
   el("btnCrearAlumna").textContent = esEmpresa ? "Agregar empleado" : "Agregar alumno";
+  el("etiquetaPortalPapas").textContent = esEmpresa ? "" : "(para los papás)";
+  el("etiquetaPortalTipo1").textContent = esEmpresa ? "Empleados" : "Alumnos";
+  el("etiquetaPortalTipo2").textContent = esEmpresa ? "los empleados" : "los papás";
 }
 
 function mostrarPanel() {
@@ -627,11 +630,13 @@ el("btnSubirComprobante").addEventListener("click", async () => {
 });
 
 function pintarAlumnas(alumnas, cantidad, limite) {
-  el("infoLimiteAlumnas").textContent = `${cantidad} / ${limite} alumnos`;
+  const esEmpresa = sesion?.tipoCliente === "empresa";
+  const etiqueta = esEmpresa ? "empleados" : "alumnos";
+  el("infoLimiteAlumnas").textContent = `${cantidad} / ${limite} ${etiqueta}`;
   el("ayudaCantidadAlumnas").textContent =
     cantidad >= limite
       ? `Llegaste al límite de tu plan (${limite}). Para agregar más, hay que ampliar el plan con el administrador del sistema.`
-      : `Tienes ${cantidad} de ${limite} alumnos de tu plan actual.`;
+      : `Tienes ${cantidad} de ${limite} ${etiqueta} de tu plan actual.`;
 
   el("btnCrearAlumna").disabled = cantidad >= limite;
 
@@ -654,7 +659,7 @@ function pintarAlumnas(alumnas, cantidad, limite) {
         <div class="nombre-item">#${a.codigo} — ${escaparHtml(a.nombre)}</div>
         <div class="detalle-item">
           <span class="etiqueta-estado ${a.estado === "Activa" ? "activa" : "inactiva"}">${a.estado}</span>
-          &nbsp;·&nbsp; ${a.clasesEsteMes} / ${a.clases_por_mes} clases este mes
+          ${esEmpresa ? "" : `&nbsp;·&nbsp; ${a.clasesEsteMes} / ${a.clases_por_mes} clases este mes`}
         </div>
       </div>
       <div class="acciones-item">
