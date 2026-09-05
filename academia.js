@@ -856,19 +856,28 @@ async function cargarAsistenciasAlumna() {
       cont.innerHTML = '<p class="lista-vacia">Todavía no tiene ninguna asistencia marcada.</p>';
       return;
     }
-    cont.innerHTML = r.asistencias.map((a) => `
+    cont.innerHTML = r.asistencias.map((a) => {
+      const foto = a.fotoVerificacionKey
+        ? `<img class="foto-miniatura" src="${urlFoto(a.fotoVerificacionKey)}" alt="" style="cursor:pointer" data-foto="${urlFoto(a.fotoVerificacionKey)}" />`
+        : `<div class="foto-miniatura vacia">🧑</div>`;
+      return `
       <div class="tarjeta-item">
+        ${foto}
         <div class="info-principal">
           <div class="nombre-item">${escaparHtml(formatearFechaHora(a.fecha))}</div>
           <div class="detalle-item">${a.metodo === "Huella" ? "👆 Huella" : "🔢 Código"}</div>
         </div>
         <div class="acciones-item">
-          <button class="btn peligro chico" data-id="${a.id}">🗑️ Borrar</button>
+          <button class="btn peligro chico" data-id="${a.id}">🗑️Borrar</button>
         </div>
       </div>
-    `).join("");
+    `;
+    }).join("");
     cont.querySelectorAll("[data-id]").forEach((btn) => {
       btn.addEventListener("click", () => borrarAsistencia(Number(btn.dataset.id)));
+    });
+    cont.querySelectorAll("[data-foto]").forEach((img) => {
+      img.addEventListener("click", () => window.open(img.dataset.foto, "_blank"));
     });
   } catch (e) {
     cont.innerHTML = "";
