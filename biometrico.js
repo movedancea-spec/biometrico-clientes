@@ -386,7 +386,7 @@ async function capturarFotoSilenciosa() {
     canvas.height = video.videoHeight || 240;
     canvas.getContext("2d").drawImage(video, 0, 0, canvas.width, canvas.height);
     stream.getTracks().forEach(t => t.stop());
-    return canvas.toDataURL("image/jpeg", 0.7).split(",")[1];
+    return canvas.toDataURL("image/jpeg", 0.7);
   } catch (e) {
     console.error("No se pudo capturar foto de verificacion:", e);
     return null;
