@@ -224,6 +224,7 @@ async function intentarEntrar() {
       nombre: r.nombre,
       colorMarca: r.colorMarca || null,
       logoKey: r.logoKey || null,
+      tipoCliente: r.tipoCliente || "academia",
     });
     mostrarTeclado();
   } catch (e) {
