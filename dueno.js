@@ -123,7 +123,7 @@ function pintarAcademias(academias) {
 
   const cont = el("listaAcademias");
   if (!academias.length) {
-    cont.innerHTML = '<p class="lista-vacia">Todavía no has creado ninguna academia.</p>';
+    cont.innerHTML = '<p class="lista-vacia">Todavía no has creado ningún cliente.</p>';
     return;
   }
 
@@ -229,7 +229,7 @@ async function cargarHistorialPagos(academiaId) {
 function pintarHistorialPagos(pagos) {
   const cont = el("listaHistorialPagos");
   if (!pagos || !pagos.length) {
-    cont.innerHTML = '<p class="lista-vacia">Todavía no hay ningún cobro generado para esta academia.</p>';
+    cont.innerHTML = '<p class="lista-vacia">Todavía no hay ningún cobro generado para este cliente.</p>';
     return;
   }
 
@@ -283,7 +283,7 @@ async function cargarDispositivos(academiaId) {
 function pintarDispositivos(dispositivos, academiaId) {
   const cont = el("listaDispositivos");
   if (!dispositivos || !dispositivos.length) {
-    cont.innerHTML = '<p class="lista-vacia">Todavía no se ha activado ningún dispositivo para esta academia.</p>';
+    cont.innerHTML = '<p class="lista-vacia">Todavía no se ha activado ningún dispositivo para este cliente.</p>';
     return;
   }
 
@@ -374,7 +374,7 @@ el("btnGuardarEditarAcademia").addEventListener("click", async () => {
 });
 
 el("btnBorrarAcademia").addEventListener("click", async () => {
-  if (!window.confirm(`¿Borrar por completo a "${academiaEditandoNombre}"? Se elimina para siempre junto con sus alumnos, su historial de asistencias, sus pagos y sus fotos — después SÍ vas a poder crear otra academia con ese mismo nombre. Esto no se puede deshacer.`)) return;
+  if (!window.confirm(`¿Borrar por completo a "${academiaEditandoNombre}"? Se elimina para siempre junto con sus alumnos, su historial de asistencias, sus pagos y sus fotos — después SÍ vas a poder crear otro cliente con ese mismo nombre. Esto no se puede deshacer.`)) return;
 
   try {
     const r = await llamar("duenoBorrarAcademia", { claveDueno, academiaId: academiaEditandoId });
@@ -401,14 +401,14 @@ el("btnCrearAcademia").addEventListener("click", async () => {
   el("mensajeErrorCrear").textContent = "";
   el("mensajeExitoCrear").textContent = "";
 
-  if (!nombre) { el("mensajeErrorCrear").textContent = "Escribe el nombre de la academia."; return; }
+  if (!nombre) { el("mensajeErrorCrear").textContent = "Escribe el nombre del cliente."; return; }
   if (clave.length < 4) { el("mensajeErrorCrear").textContent = "La contraseña debe tener al menos 4 caracteres."; return; }
 
   el("btnCrearAcademia").disabled = true;
   try {
     const r = await llamar("duenoCrearAcademia", { claveDueno, nombre, clave, limite, limiteDispositivos, email, mensualidad, tipoCliente });
     if (!r.success) { el("mensajeErrorCrear").textContent = r.error || "No se pudo crear."; return; }
-    el("mensajeExitoCrear").textContent = `Academia "${nombre}" creada. Avísales el nombre y la contraseña para que entren a su panel.`;
+    el("mensajeExitoCrear").textContent = `Cliente "${nombre}" creado. Avísales el nombre y la contraseña para que entren a su panel.`;
     el("inputNuevaAcademiaNombre").value = "";
     el("inputNuevaAcademiaClave").value = "";
     el("inputNuevaAcademiaLimite").value = "150";

@@ -211,7 +211,7 @@ function mostrarPanel() {
   el("tituloAcademia").textContent = `📋 ${sesion.nombre}`;
   aplicarMarca(sesion.colorMarca);
   aplicarLogoEnHeader(sesion.logoKey);
-  el("inputColorMarca").value = sesion.colorMarca || "#ef4b9b";
+  el("inputColorMarca").value = sesion.colorMarca || "#9c7b4f";
   el("inputEmailCuenta").value = sesion.email || "";
   // El link ya trae el id de ESTA academia (?academia=...) para que a
   // los papás el Portal de Alumnos les abra directo en su academia,
@@ -340,7 +340,7 @@ el("btnEnviarOlvide").addEventListener("click", async () => {
   el("mensajeExitoOlvide").textContent = "";
 
   if (!nombre || !email) {
-    el("mensajeErrorOlvide").textContent = "Escribe el nombre de tu academia y tu correo registrado.";
+    el("mensajeErrorOlvide").textContent = "Escribe el nombre de tu cuenta y tu correo registrado.";
     return;
   }
 
@@ -493,7 +493,7 @@ async function cargarAlumnas() {
         // así puede quedarse viendo la pantalla y usar "💳 Mensualidad"
         // para pagar y desbloquearse sola.
         el("listaAlumnas").innerHTML =
-          '<p class="lista-vacia">Tu academia está desactivada por falta de pago de la mensualidad. Ve a "💳 Mensualidad" arriba para ponerte al día.</p>';
+          '<p class="lista-vacia">Tu cuenta está desactivada por falta de pago de la mensualidad. Ve a "💳 Mensualidad" arriba para ponerte al día.</p>';
         el("infoLimiteAlumnas").textContent = "Cuenta desactivada";
         el("btnCrearAlumna").disabled = true;
         return;

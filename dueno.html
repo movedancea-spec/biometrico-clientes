@@ -34,7 +34,7 @@
   <div class="grid-stats">
     <div class="stat-caja">
       <div class="stat-numero" id="statCantidadAcademias">—</div>
-      <div class="stat-etiqueta">Academias</div>
+      <div class="stat-etiqueta">Clientes</div>
     </div>
     <div class="stat-caja">
       <div class="stat-numero" id="statAcademiasActivas">—</div>
@@ -47,19 +47,19 @@
   </div>
 
   <div class="panel">
-    <h2>➕ Nueva academia cliente</h2>
-    <p class="ayuda">Crea el acceso para una academia nueva. El nombre es con lo que ellos inician sesión — avísales también la contraseña que pongas aquí.</p>
+    <h2>➕ Nuevo cliente</h2>
+    <p class="ayuda">Crea el acceso para un cliente nuevo. El nombre es con lo que ellos inician sesión — avísales también la contraseña que pongas aquí.</p>
     <div class="fila-formulario">
       <div>
-        <label>Nombre de la academia</label>
-        <input type="text" id="inputNuevaAcademiaNombre" placeholder="Ej: Academia Ritmo" />
+        <label>Nombre del cliente</label>
+        <input type="text" id="inputNuevaAcademiaNombre" placeholder="Ej: Estudio Ritmo" />
       </div>
       <div>
         <label>Contraseña de acceso</label>
         <input type="text" id="inputNuevaAcademiaClave" placeholder="Mínimo 4 caracteres" />
       </div>
       <div>
-        <label>Límite de alumnos</label>
+        <label>Límite de usuarios</label>
         <input type="number" id="inputNuevaAcademiaLimite" placeholder="150" value="150" min="1" />
       </div>
       <div>
@@ -68,7 +68,7 @@
       </div>
       <div>
         <label>Correo de recuperación (opcional)</label>
-        <input type="email" id="inputNuevaAcademiaEmail" placeholder="correo-de-la-academia@ejemplo.com" />
+        <input type="email" id="inputNuevaAcademiaEmail" placeholder="correo@ejemplo.com" />
       </div>
       <div>
         <label>Mensualidad (Q)</label>
@@ -82,16 +82,16 @@
       </select>
     </div>
     </div>
-    <button class="btn" id="btnCrearAcademia" style="margin-top:6px;">Crear academia</button>
+    <button class="btn" id="btnCrearAcademia" style="margin-top:6px;">Crear cliente</button>
     <p class="mensaje-error" id="mensajeErrorCrear"></p>
     <p class="mensaje-exito" id="mensajeExitoCrear"></p>
   </div>
 
   <div class="panel">
-    <h2>🏫 Academias clientes</h2>
-    <p class="ayuda">Activa/desactiva el acceso (por ejemplo, si no pagó el fee del mes), edita su nombre, contraseña, límite de alumnos o límite de dispositivos, o bórrala por completo.</p>
+    <h2>🏫 Clientes</h2>
+    <p class="ayuda">Activa/desactiva el acceso (por ejemplo, si no pagó el fee del mes), edita su nombre, contraseña, límite de usuarios o límite de dispositivos, o bórralo por completo.</p>
     <div class="lista-tarjetas" id="listaAcademias">
-      <p class="lista-vacia">Cargando academias...</p>
+      <p class="lista-vacia">Cargando clientes...</p>
     </div>
   </div>
 
@@ -100,7 +100,7 @@
 <!-- ============ MODAL: editar academia ============ -->
 <div class="fondo-modal" id="modalEditarAcademia" hidden>
   <div class="caja-modal">
-    <h3>Editar academia</h3>
+    <h3>Editar cliente</h3>
     <div class="campo">
       <label>Nombre</label>
       <input type="text" id="inputEditarNombreAcademia" />
@@ -110,7 +110,7 @@
       <input type="text" id="inputEditarClaveAcademia" placeholder="Déjalo en blanco para no cambiarla" />
     </div>
     <div class="campo">
-      <label>Límite de alumnos</label>
+      <label>Límite de usuarios</label>
       <input type="number" id="inputEditarLimite" min="1" />
     </div>
     <div class="campo">
@@ -126,7 +126,7 @@
     </div>
     <div class="campo">
       <label>Correo de recuperación (opcional)</label>
-      <input type="email" id="inputEditarEmailAcademia" placeholder="correo-de-la-academia@ejemplo.com" />
+      <input type="email" id="inputEditarEmailAcademia" placeholder="correo@ejemplo.com" />
     </div>
     <div class="campo">
       <label>Mensualidad (Q, lo que le toca pagar cada mes)</label>
@@ -155,7 +155,7 @@
       <button class="btn secundario" id="btnCancelarEditarAcademia">Cancelar</button>
       <button class="btn" id="btnGuardarEditarAcademia">Guardar</button>
     </div>
-    <button class="btn peligro" id="btnBorrarAcademia" style="margin-top:10px;">🗑️ Borrar academia</button>
+    <button class="btn peligro" id="btnBorrarAcademia" style="margin-top:10px;">🗑️ Borrar cliente</button>
   </div>
 </div>
 

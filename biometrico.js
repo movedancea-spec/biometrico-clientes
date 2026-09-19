@@ -239,7 +239,7 @@ el("btnEntrarAcademia").addEventListener("click", intentarEntrar);
 el("inputClaveAcademia").addEventListener("keydown", (e) => { if (e.key === "Enter") intentarEntrar(); });
 
 el("btnSalirKiosko").addEventListener("click", () => {
-  if (!window.confirm("¿Salir de esta pantalla? Vas a tener que volver a escribir el nombre y la contraseña de la academia para volver a dejarla lista.")) return;
+  if (!window.confirm("¿Salir de esta pantalla? Vas a tener que volver a escribir el nombre y la contraseña de la cuenta para volver a dejarla lista.")) return;
   sesion = null;
   localStorage.removeItem("biometrico_sesion_kiosko");
   el("pantallaTeclado").hidden = true;

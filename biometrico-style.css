@@ -1,8 +1,9 @@
 /* ===================================================
    BIOMÉTRICO — estilo compartido (páginas de admin)
-   Mismo look ligero/rosa de los paneles de MOVE, pero sin
-   ninguna marca de MOVE — este producto se vende a OTRAS
-   academias, así que cada quien ve el nombre de la suya.
+   Look neutro/elegante (piedra + bronce) sin ninguna marca
+   de MOVE — este producto se vende a OTROS clientes
+   (academias o empresas), así que cada quien ve su propio
+   nombre y puede poner su propio color de marca.
 =================================================== */
 
 *{ box-sizing:border-box; }
@@ -17,22 +18,23 @@
    los dos debía estar oculto. */
 [hidden]{ display:none !important; }
 
-/* Colores de marca — por defecto el rosa de siempre. Cada academia
-   puede reemplazar --color-marca (y de ahí se derivan automáticamente
-   los demás tonos, ver aplicarMarca() en academia.js/biometrico.js).
-   --color-peligro es FIJO a propósito (errores/borrar siempre en rojo,
-   sin importar el color de marca que elija la academia). */
+/* Colores de marca — por defecto un tono neutro (piedra + bronce).
+   Cada cliente puede reemplazar --color-marca (y de ahí se derivan
+   automáticamente los demás tonos, ver aplicarMarca() en
+   academia.js/biometrico.js). --color-peligro es FIJO a propósito
+   (errores/borrar siempre en rojo, sin importar el color de marca
+   que elija el cliente). */
 :root{
---color-marca:#ef4b9b;
---color-marca-oscuro:#e0245e;
---color-marca-suave:#ffe3f0;
---color-marca-suave2:#ffdcee;
---color-marca-suave3:#ffc7e2;
---color-marca-fondo:#fff5fa;
---color-marca-fondo2:#fdf1f8;
---color-marca-fondo3:#f6eefc;
---color-marca-texto-suave:#a15277;
---color-marca-texto-suave2:#c76b9c;
+--color-marca:#9c7b4f;
+--color-marca-oscuro:#856943;
+--color-marca-suave:#f3efea;
+--color-marca-suave2:#ede7df;
+--color-marca-suave3:#e6ded3;
+--color-marca-fondo:#fbfaf8;
+--color-marca-fondo2:#f9f7f4;
+--color-marca-fondo3:#f7f4f1;
+--color-marca-texto-suave:#755c3b;
+--color-marca-texto-suave2:#8c6f47;
 --color-peligro:#e0245e;
 }
 

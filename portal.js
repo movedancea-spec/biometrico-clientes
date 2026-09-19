@@ -111,7 +111,7 @@ function oscurecer(hex, porcentaje) {
 // aquí solo se apunta el <link> a esa URL con el color que toque.
 function aplicarIconoInstalacion(colorMarca) {
   const esValido = colorMarca && /^#[0-9a-fA-F]{6}$/.test(colorMarca);
-  const color = esValido ? colorMarca.replace("#", "") : "ef4b9b"; // rosado por defecto, igual que el resto del portal
+  const color = esValido ? colorMarca.replace("#", "") : "9c7b4f"; // bronce por defecto, igual que el resto del portal
   // "&v=VERSION_APP" es lo que hace que el navegador SÍ vuelva a pedir
   // el ícono cuando de verdad cambia (por ejemplo, cuando le agregamos
   // la letra "P" encima del color): como este archivo se cachea 30
@@ -142,7 +142,7 @@ function aplicarIconoInstalacion(colorMarca) {
     temaColor.name = "theme-color";
     document.head.appendChild(temaColor);
   }
-  temaColor.content = esValido ? colorMarca : "#ef4b9b";
+  temaColor.content = esValido ? colorMarca : "#9c7b4f";
 }
 
 function aplicarMarca(colorMarca) {
@@ -264,8 +264,8 @@ async function cargarAlumnasPorAcademiaId(academiaId) {
       llegoPorLinkDirecto = false;
       mostrarPantallaBuscarAcademia();
       el("mensajeErrorBuscarAcademia").textContent = !r.success
-        ? (r.error || "No se pudo abrir el portal de esa academia.")
-        : "Esa academia todavía no tiene alumnos registrados.";
+        ? (r.error || "No se pudo abrir el portal de esa cuenta.")
+        : "Esa cuenta todavía no tiene alumnos registrados.";
       return;
     }
 
@@ -280,7 +280,7 @@ async function cargarAlumnasPorAcademiaId(academiaId) {
 el("btnBuscarAcademia").addEventListener("click", async () => {
   const nombreAcademia = el("inputPortalAcademia").value.trim();
   el("mensajeErrorBuscarAcademia").textContent = "";
-  if (!nombreAcademia) { el("mensajeErrorBuscarAcademia").textContent = "Escribe el nombre de la academia."; return; }
+  if (!nombreAcademia) { el("mensajeErrorBuscarAcademia").textContent = "Escribe el nombre de tu cuenta."; return; }
 
   el("btnBuscarAcademia").disabled = true;
   try {
@@ -291,7 +291,7 @@ el("btnBuscarAcademia").addEventListener("click", async () => {
     }).then((resp) => resp.json());
 
     if (!r.success) { el("mensajeErrorBuscarAcademia").textContent = r.error || "No se pudo continuar."; return; }
-    if (!r.alumnas.length) { el("mensajeErrorBuscarAcademia").textContent = "Esa academia todavía no tiene alumnos registrados."; return; }
+    if (!r.alumnas.length) { el("mensajeErrorBuscarAcademia").textContent = "Esa cuenta todavía no tiene alumnos registrados."; return; }
 
     llegoPorLinkDirecto = false;
     mostrarPaso2ConAlumnas(r.academiaId, r.academiaNombre || nombreAcademia, r.alumnas, r.colorMarca, r.logoKey);
@@ -743,7 +743,7 @@ el("btnActivarPush").addEventListener("click", async () => {
       }
       const config = await llamar("portalConfiguracionPush", {});
       if (!config.success || !config.vapidPublicKey) {
-        el("mensajeErrorPush").textContent = "Las notificaciones todavía no están activadas del lado del sistema — avísale al administrador de tu academia.";
+        el("mensajeErrorPush").textContent = "Las notificaciones todavía no están activadas del lado del sistema — avísale al administrador de tu cuenta.";
         return;
       }
       suscripcion = await registro.pushManager.subscribe({
