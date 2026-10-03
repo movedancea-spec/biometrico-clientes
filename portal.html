@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="biometrico-style.css?v=63ca2105" />
+<link rel="stylesheet" href="biometrico-style.css?v=c8044c44" />
 <script>
 // Aplica el color de marca de la última academia que se vio en ESTE
 // dispositivo (guardado en localStorage) ANTES de que se pinte la
@@ -70,14 +70,24 @@
 
 <!-- ============ ENTRAR: código del alumno + PIN ============ -->
 <div class="tarjeta-login" id="pantallaLoginPortal" hidden>
-  <h1>🧒 Entrar al portal</h1>
+  <img class="logo-login" id="logoLoginPortal" src="" alt="" hidden />
+  <h1 id="tituloLoginPortal">🧒 Entrar al portal</h1>
   <p class="subtitulo" id="subtituloLoginPortal"></p>
   <input type="text" id="inputPortalCodigo" placeholder="Código del alumno" inputmode="numeric" autocomplete="off" />
   <input type="password" id="inputPortalClave" placeholder="PIN" autocomplete="off" />
   <button class="btn" id="btnEntrarPortal">Entrar →</button>
   <p class="mensaje-error" id="mensajeErrorEntrarPortal"></p>
   <button class="enlace-texto" id="btnOlvidePin" type="button">¿Olvidaste el PIN?</button>
-  <p class="subtitulo" id="textoOlvidePin" hidden>Pídele a tu academia que te genere un PIN nuevo.</p>
+  <!-- Olvidé mi PIN (paso 1): código + correo registrado → llega un enlace por correo -->
+  <div id="bloqueOlvidePin" hidden>
+    <p class="subtitulo">Escribe el código y el correo que registraste en el portal. Te mandamos un enlace para poner un PIN nuevo.</p>
+    <input type="text" id="inputOlvideCodigo" placeholder="Código del alumno" inputmode="numeric" autocomplete="off" />
+    <input type="email" id="inputOlvideEmail" placeholder="Tu correo registrado" autocomplete="off" />
+    <button class="btn" id="btnEnviarOlvidePin" type="button">Mandar enlace</button>
+    <p class="mensaje-error" id="mensajeErrorOlvidePin"></p>
+    <p class="mensaje-exito" id="mensajeExitoOlvidePin"></p>
+    <p class="subtitulo">Si no registraste un correo, pídele a tu academia que te genere un PIN nuevo.</p>
+  </div>
   <button class="enlace-texto" id="btnVolverPanelPortal" type="button" hidden>← Volver</button>
 </div>
 
@@ -184,6 +194,6 @@
 
 </div>
 
-<script src="portal.js?v=74da08c454b1"></script>
+<script src="portal.js?v=6bff86ff635c"></script>
 </body>
 </html>

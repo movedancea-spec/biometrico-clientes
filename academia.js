@@ -10,7 +10,7 @@ const API_URL = "https://biometrico-saas.movedancea.workers.dev";
 // nueva de los archivos — ver verificarActualizacion() al final de
 // este archivo. NO cambiar este valor a mano: lo actualiza el script
 // actualizar-versiones.mjs cada vez que algo cambia.
-const VERSION_APP = "74da08c454b1";
+const VERSION_APP = "6bff86ff635c";
 
 const el = (id) => document.getElementById(id);
 
@@ -1065,20 +1065,20 @@ el("btnGuardarMarca").addEventListener("click", async () => {
     });
     if (!r.success) { el("mensajeErrorMarca").textContent = r.error || "No se pudo guardar."; return; }
 
-    // Antes se volvía a hacer login con la clave para saber la key del
-    // logo nuevo; ya no se guarda la clave, y academiaActualizarMarca
-    // todavía no devuelve esa key (pendiente para la Fase 1c). Mientras
-    // tanto, el logo nuevo se muestra con la vista previa y la key
-    // correcta llega la próxima vez que inicien sesión.
-    sesion.colorMarca = color;
-    guardarSesion(sesion);
-    if (logoBase64) {
+    // academiaActualizarMarca devuelve el color y la key del logo ya
+    // guardados; con eso el logo nuevo se ve aquí de una vez (la tablet
+    // lo toma sola en su siguiente refresco).
+    sesion.colorMarca = r.colorMarca || color;
+    if (r.logoKey !== undefined) {
+      sesion.logoKey = r.logoKey || null;
+      aplicarLogoEnHeader(sesion.logoKey);
+    } else if (logoBase64) {
+      // Worker anterior a la Fase 1c (no devuelve la key): solo la vista previa.
       el("logoAcademia").src = logoBase64;
       el("logoAcademia").hidden = false;
     }
-    el("mensajeExitoMarca").textContent = logoBase64
-      ? "¡Personalización guardada! El logo nuevo ya quedó guardado; en este panel y en la tablet se verá la próxima vez que inicien sesión."
-      : "¡Personalización guardada!";
+    guardarSesion(sesion);
+    el("mensajeExitoMarca").textContent = "¡Personalización guardada!";
     el("inputLogoMarca").value = "";
     el("logoPreviewPersonalizar").hidden = true;
   } catch (e) {

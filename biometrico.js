@@ -14,7 +14,7 @@ const API_URL = "https://biometrico-saas.movedancea.workers.dev";
 // nueva de los archivos — ver verificarActualizacion() al final de
 // este archivo. NO cambiar este valor a mano: lo actualiza el script
 // actualizar-versiones.mjs cada vez que algo cambia.
-const VERSION_APP = "74da08c454b1";
+const VERSION_APP = "6bff86ff635c";
 
 const el = (id) => document.getElementById(id);
 
@@ -253,10 +253,30 @@ function mostrarTeclado() {
   aplicarMarca(sesion.colorMarca);
   aplicarLogoKiosko(sesion.logoKey);
   reiniciarCodigo();
-  // El color y el logo se toman de lo que se guardó al iniciar sesión;
-  // si la cuenta los cambia, se ven aquí al volver a entrar. (Antes se
-  // refrescaban solos con la clave guardada — pendiente para la Fase 1c
-  // con un endpoint de marca que acepte el token del kiosko.)
+  // El color y el logo se refrescan solos cada 3 minutos (refrescarMarca).
+}
+
+// Si la cuenta cambia su color, su logo o su nombre, la tablet lo toma
+// sola, sin volver a iniciar sesión. En silencio: si falla (sin
+// internet, Worker viejo...), se queda con lo que ya tenía.
+async function refrescarMarca() {
+  if (!sesion) return;
+  try {
+    const r = await llamar("kioskoConsultarMarca", {});
+    if (!r.success || !sesion) return;
+    const cambio = r.colorMarca !== sesion.colorMarca || r.logoKey !== sesion.logoKey || r.nombre !== sesion.nombre;
+    if (!cambio) return;
+    sesion.colorMarca = r.colorMarca || null;
+    sesion.logoKey = r.logoKey || null;
+    sesion.nombre = r.nombre || sesion.nombre;
+    if (r.tipoCliente) sesion.tipoCliente = r.tipoCliente;
+    guardarSesion(sesion);
+    el("marcaAcademiaKiosko").textContent = sesion.nombre;
+    aplicarMarca(sesion.colorMarca);
+    aplicarLogoKiosko(sesion.logoKey);
+  } catch (e) {
+    // Se reintenta en el siguiente ciclo.
+  }
 }
 
 async function intentarEntrar() {
@@ -528,8 +548,10 @@ if (sesionVencida(sesionGuardada)) {
   sesion = sesionGuardada;
   mostrarTeclado();
   migrarSesionVieja();
+  refrescarMarca();
 }
 setInterval(migrarSesionVieja, 5 * 60 * 1000);
+setInterval(refrescarMarca, 3 * 60 * 1000);
 
 // ---------------------------------------------------------------
 // AUTO-ACTUALIZACIÓN — revisa cada 5 minutos si hay una versión

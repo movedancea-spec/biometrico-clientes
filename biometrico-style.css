@@ -68,6 +68,14 @@ color:var(--color-marca);
 margin:4px 0 4px;
 }
 
+.tarjeta-login .logo-login{
+display:block;
+max-height:64px;
+max-width:180px;
+object-fit:contain;
+margin:0 auto 8px;
+}
+
 .tarjeta-login p.subtitulo{
 font-size:13px;
 color:#9a7d90;

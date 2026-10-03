@@ -10,7 +10,7 @@ const API_URL = "https://biometrico-saas.movedancea.workers.dev";
 // nueva de los archivos — ver verificarActualizacion() al final de
 // este archivo. NO cambiar este valor a mano: lo actualiza el script
 // actualizar-versiones.mjs cada vez que algo cambia.
-const VERSION_APP = "74da08c454b1";
+const VERSION_APP = "6bff86ff635c";
 
 const el = (id) => document.getElementById(id);
 
@@ -290,25 +290,55 @@ function mostrarLogin(academiaId, mensaje) {
   academiaIdLogin = Number(academiaId);
 
   // Si en este dispositivo ya hay un hermano de esa misma academia, la
-  // pantalla sale de una vez con su color y su logo; si no, con los de
-  // por defecto (no hay forma pública de pedirlos sin iniciar sesión —
-  // pendiente para la Fase 1c).
+  // pantalla sale de una vez con su marca; luego se pide la marca de la
+  // academia del link (portalMarcaAcademia, pública) por si cambió o no
+  // hay hermano.
   const hermano = alumnasGuardadas.find((a) => Number(a.academiaId) === academiaIdLogin);
-  aplicarMarca(hermano?.colorMarca || null);
-  aplicarLogoEnHeader(hermano?.logoKey || null);
-  const esEmpresa = hermano?.tipoCliente === "empresa";
-  el("subtituloLoginPortal").textContent = hermano?.academiaNombre
-    ? `Escribe el código ${esEmpresa ? "del empleado" : "de tu hijo"} en ${hermano.academiaNombre} y su PIN del portal.`
-    : "Escribe el código del alumno y su PIN del portal.";
+  pintarMarcaLogin(hermano
+    ? { nombre: hermano.academiaNombre, colorMarca: hermano.colorMarca, logoKey: hermano.logoKey, tipoCliente: hermano.tipoCliente }
+    : null);
+  cargarMarcaLogin(academiaIdLogin);
 
   el("inputPortalCodigo").value = "";
   el("inputPortalClave").value = "";
-  el("textoOlvidePin").hidden = true;
+  el("bloqueOlvidePin").hidden = true;
   el("mensajeErrorEntrarPortal").textContent = mensaje || "";
   el("btnVolverPanelPortal").hidden = !alumnasGuardadas.length;
 
   ocultarPantallas();
   el("pantallaLoginPortal").hidden = false;
+}
+
+// marca = { nombre, colorMarca, logoKey, tipoCliente } o null (por defecto).
+function pintarMarcaLogin(marca) {
+  aplicarMarca(marca?.colorMarca || null);
+  aplicarLogoEnHeader(marca?.logoKey || null);
+  const logo = el("logoLoginPortal");
+  if (marca?.logoKey) { logo.src = urlFoto(marca.logoKey); logo.hidden = false; }
+  else { logo.hidden = true; }
+  el("tituloLoginPortal").textContent = marca?.nombre ? marca.nombre : "🧒 Entrar al portal";
+  const esEmpresa = marca?.tipoCliente === "empresa";
+  el("subtituloLoginPortal").textContent = marca?.nombre
+    ? `Escribe el código ${esEmpresa ? "del empleado" : "de tu hijo"} y su PIN del portal.`
+    : "Escribe el código del alumno y su PIN del portal.";
+}
+
+// En silencio: si falla (sin internet, academia desactivada...), se
+// queda la marca que ya se pintó.
+async function cargarMarcaLogin(academiaId) {
+  try {
+    const resp = await fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ accion: "portalMarcaAcademia", academiaId }),
+    });
+    const r = await resp.json();
+    // Puede que mientras tanto se haya cambiado de pantalla o de academia.
+    if (!r.success || academiaIdLogin !== academiaId || el("pantallaLoginPortal").hidden) return;
+    pintarMarcaLogin(r);
+  } catch (e) {
+    // Se queda con lo que ya había.
+  }
 }
 
 // Datos que se guardan de cada alumno a partir de la respuesta de
@@ -370,12 +400,49 @@ async function entrarPortal() {
 el("btnEntrarPortal").addEventListener("click", entrarPortal);
 el("inputPortalClave").addEventListener("keydown", (e) => { if (e.key === "Enter") entrarPortal(); });
 
-// "Olvidé mi PIN": por ahora la recuperación por correo necesita el id
-// interno del alumno, que ya no se conoce sin la lista de nombres
-// (pendiente para la Fase 1c) — mientras tanto, la academia le genera
-// un PIN nuevo desde su panel.
+// "Olvidé mi PIN" — paso 1: academia del link + código + correo
+// registrado. El Worker responde lo mismo exista o no el código, así
+// que aquí siempre se muestra su mensaje genérico.
 el("btnOlvidePin").addEventListener("click", () => {
-  el("textoOlvidePin").hidden = !el("textoOlvidePin").hidden;
+  const bloque = el("bloqueOlvidePin");
+  bloque.hidden = !bloque.hidden;
+  if (bloque.hidden) return;
+  el("inputOlvideCodigo").value = el("inputPortalCodigo").value.trim();
+  el("inputOlvideEmail").value = "";
+  el("mensajeErrorOlvidePin").textContent = "";
+  el("mensajeExitoOlvidePin").textContent = "";
+});
+
+el("btnEnviarOlvidePin").addEventListener("click", async () => {
+  const codigo = Number(el("inputOlvideCodigo").value.trim());
+  const email = el("inputOlvideEmail").value.trim();
+  el("mensajeErrorOlvidePin").textContent = "";
+  el("mensajeExitoOlvidePin").textContent = "";
+  if (!codigo) { el("mensajeErrorOlvidePin").textContent = "Escribe el código del alumno."; return; }
+  if (!email) { el("mensajeErrorOlvidePin").textContent = "Escribe tu correo."; return; }
+
+  el("btnEnviarOlvidePin").disabled = true;
+  try {
+    const resp = await fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        accion: "portalSolicitarRecuperacion",
+        academiaId: academiaIdLogin,
+        codigo,
+        email,
+        origenPortal: location.origin + location.pathname,
+      }),
+    });
+    const r = await resp.json();
+    if (resp.status === 429) { el("mensajeErrorOlvidePin").textContent = textoBloqueo(r.reintentarEnSegundos); return; }
+    if (!r.success) { el("mensajeErrorOlvidePin").textContent = r.error || "No se pudo enviar."; return; }
+    el("mensajeExitoOlvidePin").textContent = r.mensaje;
+  } catch (e) {
+    el("mensajeErrorOlvidePin").textContent = "No se pudo conectar. Revisa tu conexión.";
+  } finally {
+    el("btnEnviarOlvidePin").disabled = false;
+  }
 });
 
 el("btnVolverPanelPortal").addEventListener("click", () => {
@@ -437,7 +504,7 @@ async function migrarSesionesViejas() {
 
 // ---------------------------------------------------------------
 // "Olvidé mi contraseña" del portal — paso 2 (llega del correo,
-// portal.html?recuperar=TOKEN). El paso 1 se quitó (ver btnOlvidePin).
+// portal.html?recuperar=TOKEN). El paso 1 está en btnEnviarOlvidePin.
 // ---------------------------------------------------------------
 el("btnRestablecerPortalClave").addEventListener("click", async () => {
   const params = new URLSearchParams(location.search);
