@@ -14,18 +14,31 @@ const API_URL = "https://biometrico-saas.movedancea.workers.dev";
 // nueva de los archivos — ver verificarActualizacion() al final de
 // este archivo. NO cambiar este valor a mano: lo actualiza el script
 // actualizar-versiones.mjs cada vez que algo cambia.
-const VERSION_APP = "59e75fabac0c";
+const VERSION_APP = "74da08c454b1";
 
 const el = (id) => document.getElementById(id);
 
-let sesion = null; // { academiaId, clave, nombre }
+// { token, expiraEn, academiaId, nombre, colorMarca, logoKey, tipoCliente }
+// — la contraseña ya NO se guarda. "clave" solo existe en tablets que
+// tenían sesión de antes de los tokens, mientras se migran (ver
+// migrarSesionVieja): hasta que se consiga el token, la tablet sigue
+// marcando con la clave por el camino viejo, sin que nadie la toque.
+let sesion = null;
 let codigoActual = "";
 let timeoutResultado = null;
 
 document.body.classList.add("modo-kiosko");
 
+// Solo para el logo (que sigue siendo público) y para el respaldo de
+// fotoAlumna(). Las fotos de alumnos vienen ya firmadas (fotoUrl).
 function urlFoto(fotoKey) {
   return fotoKey ? `${API_URL}/foto?key=${encodeURIComponent(fotoKey)}` : "";
+}
+
+function fotoAlumna(alumna) {
+  if (!alumna.fotoKey) return "";
+  // Respaldo sin firma si el Worker no manda fotoUrl — quitar en Fase 1c.
+  return alumna.fotoUrl || urlFoto(alumna.fotoKey);
 }
 
 // ---------------------------------------------------------------
@@ -110,13 +123,55 @@ function aplicarLogoKiosko(logoKey) {
   }
 }
 
+const MENSAJE_SESION_VENCIDA = "La sesión de esta tablet terminó. Vuelve a escribir el nombre de la cuenta y la contraseña para dejarla lista.";
+
 async function llamar(accion, datos) {
+  const headers = { "Content-Type": "application/json" };
+  if (sesion?.token) headers.Authorization = `Bearer ${sesion.token}`;
+  const extra = !sesion?.token && sesion?.clave ? { academiaId: sesion.academiaId, clave: sesion.clave } : {};
   const resp = await fetch(API_URL, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ accion, academiaId: sesion?.academiaId, clave: sesion?.clave, ...datos }),
+    headers,
+    body: JSON.stringify({ accion, ...extra, ...datos }),
   });
-  return await resp.json();
+  const r = await resp.json();
+  if (resp.status === 401 && sesion) volverALogin(MENSAJE_SESION_VENCIDA);
+  if (resp.status === 429) r.error = textoBloqueo(r.reintentarEnSegundos);
+  return r;
+}
+
+// ---------------------------------------------------------------
+// DEMASIADOS INTENTOS (429) — el Worker dice cuántos segundos faltan
+// (reintentarEnSegundos). En el login se deja el botón apagado con una
+// cuenta regresiva para que se vea cuánto falta.
+// ---------------------------------------------------------------
+function textoEspera(segundos) {
+  const s = Math.max(0, Math.ceil(Number(segundos) || 0));
+  const m = Math.floor(s / 60);
+  return m ? `${m} min ${String(s % 60).padStart(2, "0")} s` : `${s} s`;
+}
+
+function textoBloqueo(segundos) {
+  return `Demasiados intentos fallidos. Podrás intentar de nuevo en ${textoEspera(segundos)}.`;
+}
+
+let intervaloBloqueoLogin = null;
+function mostrarBloqueoLogin(segundos) {
+  clearInterval(intervaloBloqueoLogin);
+  const hasta = Date.now() + (Number(segundos) || 60) * 1000;
+  const pintar = () => {
+    const faltan = (hasta - Date.now()) / 1000;
+    if (faltan <= 0) {
+      clearInterval(intervaloBloqueoLogin);
+      el("mensajeErrorLogin").textContent = "Ya puedes volver a intentarlo.";
+      el("btnEntrarAcademia").disabled = false;
+      return;
+    }
+    el("mensajeErrorLogin").textContent = textoBloqueo(faltan);
+    el("btnEntrarAcademia").disabled = true;
+  };
+  pintar();
+  intervaloBloqueoLogin = setInterval(pintar, 1000);
 }
 
 // ---------------------------------------------------------------
@@ -136,6 +191,60 @@ function cargarSesionGuardada() {
   }
 }
 
+function sesionVencida(s) {
+  return s && s.expiraEn && new Date(s.expiraEn).getTime() <= Date.now();
+}
+
+// Con dispositivoToken el Worker da una sesión de KIOSKO (180 días,
+// ligada a esta tablet) y no gasta un cupo nuevo si la tablet ya
+// estaba registrada.
+async function pedirToken(nombre, clave) {
+  const resp = await fetch(API_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ accion: "academiaLogin", nombre, clave, dispositivoToken: obtenerOCrearTokenDispositivo() }),
+  });
+  return { status: resp.status, r: await resp.json() };
+}
+
+// Migración de una tablet que ya estaba funcionando antes de los
+// tokens: se cambia la clave guardada por un token UNA vez y la clave
+// se borra. Si no se puede ahora (sin internet, demasiados intentos, le
+// cambiaron el nombre a la cuenta...), NO se saca a la tablet de la
+// pantalla de marcar: sigue usando la clave por el camino viejo y se
+// reintenta cada 5 minutos.
+async function migrarSesionVieja() {
+  if (!sesion?.clave || sesion.token) return;
+  try {
+    const { r } = await pedirToken(sesion.nombre, sesion.clave);
+    if (!r.success || !r.token || !sesion?.clave) return;
+    sesion.token = r.token;
+    sesion.expiraEn = r.expiraEn;
+    sesion.tipoCliente = r.tipoCliente || sesion.tipoCliente || "academia";
+    delete sesion.clave;
+    guardarSesion(sesion);
+  } catch (e) {
+    // Se reintenta en el siguiente ciclo.
+  }
+}
+
+function volverALogin(mensaje) {
+  sesion = null;
+  localStorage.removeItem("biometrico_sesion_kiosko");
+  clearTimeout(timeoutConfirmacion);
+  clearTimeout(timeoutResultado);
+  codigoPendienteConfirmacion = null;
+  el("pantallaTeclado").hidden = true;
+  el("pantallaConfirmacion").hidden = true;
+  el("pantallaResultado").hidden = true;
+  el("pantallaLogin").hidden = false;
+  aplicarMarca(null);
+  aplicarLogoKiosko(null);
+  el("inputNombreAcademia").value = "";
+  el("inputClaveAcademia").value = "";
+  el("mensajeErrorLogin").textContent = mensaje || "";
+}
+
 function mostrarTeclado() {
   el("pantallaLogin").hidden = true;
   el("pantallaResultado").hidden = true;
@@ -144,59 +253,10 @@ function mostrarTeclado() {
   aplicarMarca(sesion.colorMarca);
   aplicarLogoKiosko(sesion.logoKey);
   reiniciarCodigo();
-  iniciarActualizacionAutomaticaDeMarca();
-}
-
-// ---------------------------------------------------------------
-// ACTUALIZACIÓN AUTOMÁTICA DE COLOR/LOGO (sin salir e iniciar sesión)
-// ---------------------------------------------------------------
-// Como esta tablet se queda con la sesión guardada por días o semanas,
-// si la academia cambia su color o logo desde OTRO dispositivo (su
-// celular, su computadora), esta tablet nunca se entera por sí sola —
-// se queda con lo que tenía guardado. Para que "se actualice sola",
-// cada cierto tiempo se vuelve a preguntar al servidor en silencio
-// (sin mostrar nada en pantalla) si hay un color/logo más reciente, y
-// si lo hay, se aplica de inmediato sin interrumpir a quien esté
-// usando el teclado.
-const INTERVALO_ACTUALIZACION_MARCA_MS = 3 * 60 * 1000; // cada 3 minutos
-let temporizadorActualizacionMarca = null;
-
-async function refrescarMarcaEnSilencio() {
-  if (!sesion || !sesion.nombre || !sesion.clave) return;
-  try {
-    const resp = await fetch(API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ accion: "academiaLogin", nombre: sesion.nombre, clave: sesion.clave, dispositivoToken: obtenerOCrearTokenDispositivo() }),
-    });
-    const r = await resp.json();
-    if (!r.success) return; // si falla (ej. desactivada), no se interrumpe el kiosko por esto
-    const colorNuevo = r.colorMarca || null;
-    const logoNuevo = r.logoKey || null;
-    if (colorNuevo !== sesion.colorMarca || logoNuevo !== sesion.logoKey) {
-      sesion.colorMarca = colorNuevo;
-      sesion.logoKey = logoNuevo;
-      guardarSesion(sesion);
-      aplicarMarca(sesion.colorMarca);
-      aplicarLogoKiosko(sesion.logoKey);
-    }
-  } catch (e) {
-    // Sin conexión momentánea: no pasa nada, se vuelve a intentar en el siguiente ciclo.
-  }
-}
-
-function iniciarActualizacionAutomaticaDeMarca() {
-  if (temporizadorActualizacionMarca) return; // ya está corriendo, no duplicar
-  temporizadorActualizacionMarca = setInterval(refrescarMarcaEnSilencio, INTERVALO_ACTUALIZACION_MARCA_MS);
-  // Además de esperar el primer intervalo, se hace un primer chequeo
-  // pronto después de entrar, por si el cambio de color ya se había
-  // hecho antes de prender la tablet ese día.
-  setTimeout(refrescarMarcaEnSilencio, 15000);
-}
-
-function detenerActualizacionAutomaticaDeMarca() {
-  clearInterval(temporizadorActualizacionMarca);
-  temporizadorActualizacionMarca = null;
+  // El color y el logo se toman de lo que se guardó al iniciar sesión;
+  // si la cuenta los cambia, se ven aquí al volver a entrar. (Antes se
+  // refrescaban solos con la clave guardada — pendiente para la Fase 1c
+  // con un endpoint de marca que acepte el token del kiosko.)
 }
 
 async function intentarEntrar() {
@@ -207,20 +267,23 @@ async function intentarEntrar() {
   el("btnEntrarAcademia").disabled = true;
   el("btnEntrarAcademia").textContent = "Entrando...";
 
+  let bloqueado = false;
   try {
-    const resp = await fetch(API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ accion: "academiaLogin", nombre, clave, dispositivoToken: obtenerOCrearTokenDispositivo() }),
-    });
-    const r = await resp.json();
+    const { status, r } = await pedirToken(nombre, clave);
+    if (status === 429) {
+      bloqueado = true;
+      mostrarBloqueoLogin(r.reintentarEnSegundos);
+      return;
+    }
     if (!r.success) {
       el("mensajeErrorLogin").textContent = r.error || "No se pudo entrar.";
       return;
     }
+    el("inputClaveAcademia").value = "";
     guardarSesion({
+      token: r.token,
+      expiraEn: r.expiraEn,
       academiaId: r.academiaId,
-      clave,
       nombre: r.nombre,
       colorMarca: r.colorMarca || null,
       logoKey: r.logoKey || null,
@@ -230,7 +293,7 @@ async function intentarEntrar() {
   } catch (e) {
     el("mensajeErrorLogin").textContent = "No se pudo conectar. Revisa tu conexión e inténtalo de nuevo.";
   } finally {
-    el("btnEntrarAcademia").disabled = false;
+    el("btnEntrarAcademia").disabled = bloqueado;
     el("btnEntrarAcademia").textContent = "Entrar →";
   }
 }
@@ -238,16 +301,14 @@ async function intentarEntrar() {
 el("btnEntrarAcademia").addEventListener("click", intentarEntrar);
 el("inputClaveAcademia").addEventListener("keydown", (e) => { if (e.key === "Enter") intentarEntrar(); });
 
-el("btnSalirKiosko").addEventListener("click", () => {
+el("btnSalirKiosko").addEventListener("click", async () => {
   if (!window.confirm("¿Salir de esta pantalla? Vas a tener que volver a escribir el nombre y la contraseña de la cuenta para volver a dejarla lista.")) return;
-  sesion = null;
-  localStorage.removeItem("biometrico_sesion_kiosko");
-  el("pantallaTeclado").hidden = true;
-  el("pantallaLogin").hidden = false;
-  aplicarMarca(null);
-  aplicarLogoKiosko(null);
-  el("inputNombreAcademia").value = "";
-  el("inputClaveAcademia").value = "";
+  // Se avisa al servidor para que el token deje de servir (si falla por
+  // red, igual se borra de esta tablet).
+  if (sesion?.token) {
+    try { await llamar("cerrarSesion", {}); } catch (e) { /* mejor esfuerzo */ }
+  }
+  volverALogin();
 });
 
 // ---------------------------------------------------------------
@@ -356,7 +417,7 @@ function mostrarConfirmacion(alumna) {
   el("pantallaConfirmacion").hidden = false;
 
   const foto = alumna.fotoKey
-    ? `<img class="foto-bienvenida" src="${urlFoto(alumna.fotoKey)}" alt="" />`
+    ? `<img class="foto-bienvenida" src="${escaparHtml(fotoAlumna(alumna))}" alt="" />`
     : `<div class="foto-bienvenida vacia">💃</div>`;
 
   el("contenidoConfirmacion").innerHTML = `
@@ -436,7 +497,7 @@ function mostrarBienvenida(r) {
   el("pantallaResultado").hidden = false;
 
   const foto = r.alumna.fotoKey
-    ? `<img class="foto-bienvenida" src="${urlFoto(r.alumna.fotoKey)}" alt="" />`
+    ? `<img class="foto-bienvenida" src="${escaparHtml(fotoAlumna(r.alumna))}" alt="" />`
     : `<div class="foto-bienvenida vacia">💃</div>`;
 
   el("contenidoResultado").innerHTML = `
@@ -458,11 +519,17 @@ function mostrarBienvenida(r) {
 // ---------------------------------------------------------------
 // INICIO
 // ---------------------------------------------------------------
+// Si la tablet ya tenía sesión, entra directo al teclado SIN esperar a
+// la red — la migración de una sesión vieja corre en segundo plano.
 const sesionGuardada = cargarSesionGuardada();
-if (sesionGuardada) {
+if (sesionVencida(sesionGuardada)) {
+  volverALogin(MENSAJE_SESION_VENCIDA);
+} else if (sesionGuardada) {
   sesion = sesionGuardada;
   mostrarTeclado();
+  migrarSesionVieja();
 }
+setInterval(migrarSesionVieja, 5 * 60 * 1000);
 
 // ---------------------------------------------------------------
 // AUTO-ACTUALIZACIÓN — revisa cada 5 minutos si hay una versión

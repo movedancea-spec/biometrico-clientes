@@ -61,36 +61,24 @@
 </head>
 <body>
 
-<!-- ============ PASO 1: nombre de la academia ============ -->
-<div class="tarjeta-login" id="pantallaBuscarAcademia">
+<!-- ============ SIN LINK DE LA ACADEMIA ============ -->
+<div class="tarjeta-login" id="pantallaSinEnlace" hidden>
   <h1>👨‍👩‍👧‍👦 Portal</h1>
   <p class="subtitulo">Aquí puedes ver el historial de asistencia de tu hijo y activar los avisos de cuándo llega a su clase.</p>
-  <input type="text" id="inputPortalAcademia" placeholder="Nombre de tu cuenta" autocomplete="off" />
-  <button class="btn" id="btnBuscarAcademia">Continuar →</button>
-  <p class="mensaje-error" id="mensajeErrorBuscarAcademia"></p>
+  <p class="subtitulo">Para entrar, abre el enlace que te compartió tu academia.</p>
 </div>
 
-<!-- ============ PASO 2: elegir alumno + contraseña ============ -->
-<div class="tarjeta-login" id="pantallaElegirAlumna" hidden>
-  <h1>🧒 ¿Cuál es tu hijo?</h1>
-  <p class="subtitulo" id="subtituloElegirAlumna"></p>
-  <select id="selectAlumnaPortal"></select>
-  <input type="password" id="inputPortalClave" placeholder="Contraseña" autocomplete="off" />
+<!-- ============ ENTRAR: código del alumno + PIN ============ -->
+<div class="tarjeta-login" id="pantallaLoginPortal" hidden>
+  <h1>🧒 Entrar al portal</h1>
+  <p class="subtitulo" id="subtituloLoginPortal"></p>
+  <input type="text" id="inputPortalCodigo" placeholder="Código del alumno" inputmode="numeric" autocomplete="off" />
+  <input type="password" id="inputPortalClave" placeholder="PIN" autocomplete="off" />
   <button class="btn" id="btnEntrarPortal">Entrar →</button>
   <p class="mensaje-error" id="mensajeErrorEntrarPortal"></p>
-  <button class="enlace-texto" id="btnMostrarOlvidePortal" type="button">¿Olvidaste tu contraseña?</button>
-  <button class="enlace-texto" id="btnVolverBuscarAcademia" type="button">← Cambiar de cuenta</button>
-</div>
-
-<!-- ============ OLVIDÉ MI CONTRASEÑA (paso 1) ============ -->
-<div class="tarjeta-login" id="pantallaOlvidePortal" hidden>
-  <h1>🔑 Recuperar contraseña</h1>
-  <p class="subtitulo">Escribe el correo que registraste en el portal para este alumno. Si coincide, te mandamos un enlace para poner una contraseña nueva.</p>
-  <input type="email" id="inputOlvidePortalEmail" placeholder="Tu correo registrado" autocomplete="off" />
-  <button class="btn" id="btnEnviarOlvidePortal">Mandar enlace de recuperación</button>
-  <p class="mensaje-error" id="mensajeErrorOlvidePortal"></p>
-  <p class="mensaje-exito" id="mensajeExitoOlvidePortal"></p>
-  <button class="enlace-texto" id="btnCancelarOlvidePortal" type="button">← Volver</button>
+  <button class="enlace-texto" id="btnOlvidePin" type="button">¿Olvidaste el PIN?</button>
+  <p class="subtitulo" id="textoOlvidePin" hidden>Pídele a tu academia que te genere un PIN nuevo.</p>
+  <button class="enlace-texto" id="btnVolverPanelPortal" type="button" hidden>← Volver</button>
 </div>
 
 <!-- ============ OLVIDÉ MI CONTRASEÑA (paso 2 — llega del correo) ============ -->
@@ -112,7 +100,10 @@
       <img class="logo-marca" id="logoPortalAcademia" src="" alt="" hidden />
       <h1 id="tituloPortalAcademia">👨‍👩‍👧‍👦 Portal</h1>
     </div>
-    <button class="btn secundario chico" id="btnAgregarOtraAlumna" type="button">+ Agregar otro alumno</button>
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+      <button class="btn secundario chico" id="btnAgregarOtraAlumna" type="button">+ Agregar otro alumno</button>
+      <button class="btn secundario chico" id="btnCerrarSesionPortal" type="button">Cerrar sesión</button>
+    </div>
   </div>
 
   <div class="selector-alumnas" id="selectorAlumnasPortal"></div>
@@ -188,11 +179,11 @@
     <hr style="border:none; border-top:1px solid var(--color-marca-suave2); margin:20px 0;" />
 
     <button class="btn peligro" id="btnQuitarAlumnaPortal" type="button">Quitar a <span id="etiquetaQuitarAlumno">este alumno</span> de este dispositivo</button>
-    <p class="ayuda" style="margin-top:8px;">Esto NO borra su historial ni su cuenta — solo deja de aparecer aquí en este teléfono/computadora. Puedes volver a agregarla cuando quieras con su contraseña.</p>
+    <p class="ayuda" style="margin-top:8px;">Esto NO borra su historial ni su cuenta — solo deja de aparecer aquí en este teléfono/computadora. Puedes volver a agregarla cuando quieras con su código y su PIN.</p>
   </div>
 
 </div>
 
-<script src="portal.js?v=f255a4f3"></script>
+<script src="portal.js?v=74da08c454b1"></script>
 </body>
 </html>

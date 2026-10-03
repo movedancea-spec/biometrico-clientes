@@ -10,26 +10,92 @@ const API_URL = "https://biometrico-saas.movedancea.workers.dev";
 // nueva de los archivos — ver verificarActualizacion() al final de
 // este archivo. NO cambiar este valor a mano: lo actualiza el script
 // actualizar-versiones.mjs cada vez que algo cambia.
-const VERSION_APP = "59e75fabac0c";
+const VERSION_APP = "74da08c454b1";
 
 const el = (id) => document.getElementById(id);
 
-let sesion = null; // { academiaId, clave, nombre, limiteAlumnas }
+// { token, expiraEn, academiaId, nombre, limiteAlumnas, ... } — la
+// contraseña ya NO se guarda. "clave" solo existe en sesiones de antes
+// de los tokens, mientras se migran (ver migrarSesionVieja).
+let sesion = null;
 let alumnaEditandoId = null;
 let fotoNuevaBase64 = null; // usada tanto para crear como para editar (se limpia entre usos)
 let intervaloAlumnas = null; // refresca sola la lista de alumnos (asistencias en tiempo casi real)
 
+// Solo para el logo (que sigue siendo público) y para el respaldo de
+// abajo. Las fotos de alumnos y de verificación vienen ya firmadas del
+// Worker (fotoUrl / fotoVerificacionUrl).
 function urlFoto(fotoKey) {
   return fotoKey ? `${API_URL}/foto?key=${encodeURIComponent(fotoKey)}` : "";
 }
 
+// Las URLs firmadas cambian en cada respuesta (traen su vencimiento),
+// y la lista de alumnos se refresca sola cada 15 s — si se usara la URL
+// nueva cada vez, el navegador volvería a bajar todas las fotos en cada
+// refresco. Por eso se reutiliza la misma URL de cada foto mientras
+// tenga menos de 45 minutos (las firmas duran 1 hora).
+const MS_REUSAR_URL_FOTO = 45 * 60 * 1000;
+const urlsFotoFirmadas = new Map(); // fotoKey → { url, en }
+
+function urlFotoFirmada(fotoKey, urlDelServidor) {
+  if (!fotoKey) return "";
+  const guardada = urlsFotoFirmadas.get(fotoKey);
+  if (guardada && Date.now() - guardada.en < MS_REUSAR_URL_FOTO) return guardada.url;
+  // Respaldo sin firma si el Worker no manda la URL — quitar en Fase 1c.
+  const url = urlDelServidor || urlFoto(fotoKey);
+  urlsFotoFirmadas.set(fotoKey, { url, en: Date.now() });
+  return url;
+}
+
+const MENSAJE_SESION_VENCIDA = "Tu sesión terminó. Vuelve a entrar con el nombre de tu cuenta y tu contraseña.";
+
 async function llamar(accion, datos) {
+  const headers = { "Content-Type": "application/json" };
+  if (sesion?.token) headers.Authorization = `Bearer ${sesion.token}`;
+  const extra = !sesion?.token && sesion?.clave ? { academiaId: sesion.academiaId, clave: sesion.clave } : {};
   const resp = await fetch(API_URL, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ accion, academiaId: sesion?.academiaId, clave: sesion?.clave, ...datos }),
+    headers,
+    body: JSON.stringify({ accion, ...extra, ...datos }),
   });
-  return await resp.json();
+  const r = await resp.json();
+  if (resp.status === 401 && sesion) volverALogin(MENSAJE_SESION_VENCIDA);
+  if (resp.status === 429) r.error = textoBloqueo(r.reintentarEnSegundos);
+  return r;
+}
+
+// ---------------------------------------------------------------
+// DEMASIADOS INTENTOS (429) — el Worker dice cuántos segundos faltan
+// (reintentarEnSegundos). En el login se deja el botón apagado con una
+// cuenta regresiva para que se vea cuánto falta.
+// ---------------------------------------------------------------
+function textoEspera(segundos) {
+  const s = Math.max(0, Math.ceil(Number(segundos) || 0));
+  const m = Math.floor(s / 60);
+  return m ? `${m} min ${String(s % 60).padStart(2, "0")} s` : `${s} s`;
+}
+
+function textoBloqueo(segundos) {
+  return `Demasiados intentos fallidos. Podrás intentar de nuevo en ${textoEspera(segundos)}.`;
+}
+
+let intervaloBloqueoLogin = null;
+function mostrarBloqueoLogin(segundos) {
+  clearInterval(intervaloBloqueoLogin);
+  const hasta = Date.now() + (Number(segundos) || 60) * 1000;
+  const pintar = () => {
+    const faltan = (hasta - Date.now()) / 1000;
+    if (faltan <= 0) {
+      clearInterval(intervaloBloqueoLogin);
+      el("mensajeErrorLogin").textContent = "Ya puedes volver a intentarlo.";
+      el("btnEntrarAcademia").disabled = false;
+      return;
+    }
+    el("mensajeErrorLogin").textContent = textoBloqueo(faltan);
+    el("btnEntrarAcademia").disabled = true;
+  };
+  pintar();
+  intervaloBloqueoLogin = setInterval(pintar, 1000);
 }
 
 function escaparHtml(t) {
@@ -185,6 +251,39 @@ function cargarSesionGuardada() {
   }
 }
 
+function sesionVencida(s) {
+  return s && s.expiraEn && new Date(s.expiraEn).getTime() <= Date.now();
+}
+
+async function pedirToken(nombre, clave) {
+  const resp = await fetch(API_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ accion: "academiaLogin", nombre, clave }),
+  });
+  return { status: resp.status, r: await resp.json() };
+}
+
+// Migración: una sesión de antes de los tokens (con la clave guardada)
+// se cambia UNA vez por un token y la clave se borra — sin pedirle a
+// nadie que vuelva a entrar. Si no se puede ahora (sin internet, nombre
+// de cuenta cambiado, demasiados intentos...), se sigue usando la clave
+// por el camino viejo y se reintenta más tarde.
+async function migrarSesionVieja() {
+  if (!sesion?.clave || sesion.token) return;
+  try {
+    const { r } = await pedirToken(sesion.nombre, sesion.clave);
+    if (!r.success || !r.token || !sesion?.clave) return;
+    sesion.token = r.token;
+    sesion.expiraEn = r.expiraEn;
+    sesion.tipoCliente = r.tipoCliente || sesion.tipoCliente || "academia";
+    delete sesion.clave;
+    guardarSesion(sesion);
+  } catch (e) {
+    // Se reintenta en el siguiente ciclo.
+  }
+}
+
 function ajustarInterfazSegunTipo() {
   const esEmpresa = sesion?.tipoCliente === "empresa";
   el("campoClasesAlumno").hidden = esEmpresa;
@@ -269,7 +368,9 @@ function volverALogin(mensaje) {
   el("pantallaLogin").hidden = false;
   aplicarMarca(null);
   aplicarLogoEnHeader(null);
-  if (mensaje) el("mensajeErrorLogin").textContent = mensaje;
+  el("modalAlumna").hidden = true;
+  el("modalAsistencias").hidden = true;
+  el("mensajeErrorLogin").textContent = mensaje || "";
 }
 
 async function intentarEntrar() {
@@ -280,20 +381,23 @@ async function intentarEntrar() {
   el("btnEntrarAcademia").disabled = true;
   el("btnEntrarAcademia").textContent = "Entrando...";
 
+  let bloqueado = false;
   try {
-    const resp = await fetch(API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ accion: "academiaLogin", nombre, clave }),
-    });
-    const r = await resp.json();
+    const { status, r } = await pedirToken(nombre, clave);
+    if (status === 429) {
+      bloqueado = true;
+      mostrarBloqueoLogin(r.reintentarEnSegundos);
+      return;
+    }
     if (!r.success) {
       el("mensajeErrorLogin").textContent = r.error || "No se pudo entrar.";
       return;
     }
+    el("inputClaveAcademia").value = "";
     guardarSesion({
+      token: r.token,
+      expiraEn: r.expiraEn,
       academiaId: r.academiaId,
-      clave,
       nombre: r.nombre,
       limiteAlumnas: r.limiteAlumnas,
       colorMarca: r.colorMarca || null,
@@ -305,7 +409,7 @@ async function intentarEntrar() {
   } catch (e) {
     el("mensajeErrorLogin").textContent = "No se pudo conectar. Revisa tu conexión e inténtalo de nuevo.";
   } finally {
-    el("btnEntrarAcademia").disabled = false;
+    el("btnEntrarAcademia").disabled = bloqueado;
     el("btnEntrarAcademia").textContent = "Entrar →";
   }
 }
@@ -313,7 +417,14 @@ async function intentarEntrar() {
 el("btnEntrarAcademia").addEventListener("click", intentarEntrar);
 el("inputClaveAcademia").addEventListener("keydown", (e) => { if (e.key === "Enter") intentarEntrar(); });
 
-el("btnSalirAcademia").addEventListener("click", () => volverALogin());
+// Cerrar sesión: se avisa al servidor para que el token deje de servir
+// (si falla por red, igual se borra de este navegador).
+el("btnSalirAcademia").addEventListener("click", async () => {
+  if (sesion?.token) {
+    try { await llamar("cerrarSesion", {}); } catch (e) { /* mejor esfuerzo */ }
+  }
+  volverALogin();
+});
 
 // ---------------------------------------------------------------
 // OLVIDÉ MI CONTRASEÑA — paso 1: pedir el enlace de recuperación.
@@ -466,11 +577,14 @@ el("btnCambiarClave").addEventListener("click", async () => {
   try {
     const r = await llamar("academiaCambiarClave", { claveNueva });
     if (!r.success) { el("mensajeErrorClave").textContent = r.error || "No se pudo cambiar."; return; }
-    // La sesión guardada usa la clave para autenticar cada acción — si
-    // no se actualiza aquí también, el siguiente clic (por ejemplo,
-    // cargar la lista de alumnos) fallaría con "Sesión inválida".
-    sesion.clave = claveNueva;
-    guardarSesion(sesion);
+    // Con token no hay nada que actualizar: el servidor deja viva esta
+    // sesión y cierra las demás. Solo una sesión vieja sin migrar
+    // (que todavía usa la clave en cada acción) necesita la nueva.
+    if (sesion.clave) {
+      sesion.clave = claveNueva;
+      guardarSesion(sesion);
+      migrarSesionVieja();
+    }
     el("inputClaveNueva").value = "";
     el("inputClaveNuevaConfirmar").value = "";
     el("mensajeExitoClave").textContent = "¡Contraseña cambiada! La vas a necesitar la próxima vez que entres.";
@@ -498,7 +612,10 @@ async function cargarAlumnas() {
         el("btnCrearAlumna").disabled = true;
         return;
       }
-      volverALogin(r.error || "Tu sesión ya no es válida, vuelve a entrar.");
+      // 401 ya mandó al login desde llamar(); cualquier otro error
+      // (por ejemplo, 429) se muestra sin sacar a nadie de su sesión.
+      if (!sesion) return;
+      el("listaAlumnas").innerHTML = `<p class="lista-vacia">${escaparHtml(r.error || "No se pudo cargar la lista.")}</p>`;
       return;
     }
     sesion.limiteAlumnas = r.limiteAlumnas;
@@ -651,7 +768,7 @@ function pintarAlumnas(alumnas, cantidad, limite) {
     const div = document.createElement("div");
     div.className = "tarjeta-item";
     const foto = a.foto_key
-      ? `<img class="foto-miniatura" src="${urlFoto(a.foto_key)}" alt="" />`
+      ? `<img class="foto-miniatura" src="${escaparHtml(urlFotoFirmada(a.foto_key, a.fotoUrl))}" alt="" />`
       : `<div class="foto-miniatura vacia">🧑</div>`;
     div.innerHTML = `
       ${foto}
@@ -733,7 +850,7 @@ function abrirModalEditar(alumna) {
 
   const preview = el("fotoPreviewModal");
   if (alumna.foto_key) {
-    preview.src = urlFoto(alumna.foto_key);
+    preview.src = urlFotoFirmada(alumna.foto_key, alumna.fotoUrl);
     preview.hidden = false;
   } else {
     preview.hidden = true;
@@ -857,8 +974,10 @@ async function cargarAsistenciasAlumna() {
       return;
     }
     cont.innerHTML = r.asistencias.map((a) => {
+      // Respaldo sin firma si no viene fotoVerificacionUrl — quitar en Fase 1c.
+      const urlVerificacion = escaparHtml(a.fotoVerificacionUrl || urlFoto(a.fotoVerificacionKey));
       const foto = a.fotoVerificacionKey
-        ? `<img class="foto-miniatura" src="${urlFoto(a.fotoVerificacionKey)}" alt="" style="cursor:pointer" data-foto="${urlFoto(a.fotoVerificacionKey)}" />`
+        ? `<img class="foto-miniatura" src="${urlVerificacion}" alt="" style="cursor:pointer" data-foto="${urlVerificacion}" />`
         : `<div class="foto-miniatura vacia">🧑</div>`;
       return `
       <div class="tarjeta-item">
@@ -946,27 +1065,20 @@ el("btnGuardarMarca").addEventListener("click", async () => {
     });
     if (!r.success) { el("mensajeErrorMarca").textContent = r.error || "No se pudo guardar."; return; }
 
-    // Vuelve a pedir los datos de sesión para tener la key real del
-    // logo que asignó el servidor (así queda bien guardada y se ve
-    // igual la próxima vez que entren, sin tener que adivinarla aquí).
-    try {
-      const resp = await fetch(API_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ accion: "academiaLogin", nombre: sesion.nombre, clave: sesion.clave }),
-      });
-      const refresco = await resp.json();
-      if (refresco.success) {
-        sesion.colorMarca = refresco.colorMarca || null;
-        sesion.logoKey = refresco.logoKey || null;
-        aplicarLogoEnHeader(sesion.logoKey);
-      }
-    } catch (e) {
-      // Si esto falla no pasa nada grave — el color ya se aplicó en
-      // pantalla, y el logo se refresca solo la próxima vez que entren.
-    }
+    // Antes se volvía a hacer login con la clave para saber la key del
+    // logo nuevo; ya no se guarda la clave, y academiaActualizarMarca
+    // todavía no devuelve esa key (pendiente para la Fase 1c). Mientras
+    // tanto, el logo nuevo se muestra con la vista previa y la key
+    // correcta llega la próxima vez que inicien sesión.
+    sesion.colorMarca = color;
     guardarSesion(sesion);
-    el("mensajeExitoMarca").textContent = "¡Personalización guardada!";
+    if (logoBase64) {
+      el("logoAcademia").src = logoBase64;
+      el("logoAcademia").hidden = false;
+    }
+    el("mensajeExitoMarca").textContent = logoBase64
+      ? "¡Personalización guardada! El logo nuevo ya quedó guardado; en este panel y en la tablet se verá la próxima vez que inicien sesión."
+      : "¡Personalización guardada!";
     el("inputLogoMarca").value = "";
     el("logoPreviewPersonalizar").hidden = true;
   } catch (e) {
@@ -984,10 +1096,14 @@ el("btnGuardarMarca").addEventListener("click", async () => {
 // ---------------------------------------------------------------
 if (!tokenRecuperacion) {
   const sesionGuardada = cargarSesionGuardada();
-  if (sesionGuardada) {
+  if (sesionVencida(sesionGuardada)) {
+    volverALogin(MENSAJE_SESION_VENCIDA);
+  } else if (sesionGuardada) {
     sesion = sesionGuardada;
     mostrarPanel();
+    migrarSesionVieja();
   }
+  setInterval(migrarSesionVieja, 5 * 60 * 1000);
 }
 
 // ---------------------------------------------------------------

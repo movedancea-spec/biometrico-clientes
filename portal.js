@@ -10,27 +10,73 @@ const API_URL = "https://biometrico-saas.movedancea.workers.dev";
 // nueva de los archivos — ver verificarActualizacion() al final de
 // este archivo. NO cambiar este valor a mano: lo actualiza el script
 // actualizar-versiones.mjs cada vez que algo cambia.
-const VERSION_APP = "59e75fabac0c";
+const VERSION_APP = "74da08c454b1";
 
 const el = (id) => document.getElementById(id);
 
-// Cada alumno agregado en ESTE dispositivo se guarda aquí (localStorage),
-// igual de simple que el resto del sistema: se manda la clave en cada
-// llamada y el servidor la revisa cada vez (no hay "sesión" del lado
-// del servidor). Así, un mismo teléfono puede tener varios hijos
-// agregadas a la vez.
-let alumnasGuardadas = [];   // [{alumnaId, clave, nombre, codigo, fotoKey, clasesPorMes, academiaId, academiaNombre, colorMarca, logoKey}]
+// Cada alumno agregado en ESTE dispositivo se guarda aquí (localStorage)
+// con SU propio token de sesión (portalLoginCodigo) — así un mismo
+// teléfono puede tener varios hermanos a la vez, cada uno con su
+// sesión. La contraseña/PIN ya NO se guarda: "clave" solo existe en
+// alumnos agregados antes de los tokens, mientras se migran (ver
+// migrarSesionesViejas).
+let alumnasGuardadas = [];   // [{alumnaId, token, expiraEn, nombre, codigo, fotoKey, fotoUrl, fotoUrlEn, clasesPorMes, academiaId, academiaNombre, colorMarca, logoKey, tipoCliente}]
 let alumnaActivaId = null;   // cuál de las de arriba se está viendo ahora
-let alumnasParaElegir = [];  // resultado temporal de "buscar academia", antes de iniciar sesión
+let academiaIdLogin = null;  // academia de la pantalla de login (viene del link ?academia=ID o de un hermano)
 
-async function llamar(accion, datos) {
-  const activa = alumnaActivaId ? alumnasGuardadas.find((a) => a.alumnaId === alumnaActivaId) : null;
+function alumnaActiva() {
+  return alumnaActivaId ? alumnasGuardadas.find((a) => a.alumnaId === alumnaActivaId) : null;
+}
+
+// "entrada" es el alumno cuya sesión se usa — por defecto el que se
+// está viendo. Se pasa explícito al cerrar sesión de todos los hermanos.
+async function llamar(accion, datos, entrada = alumnaActiva()) {
+  const headers = { "Content-Type": "application/json" };
+  if (entrada?.token) headers.Authorization = `Bearer ${entrada.token}`;
+  const extra = !entrada?.token && entrada?.clave ? { alumnaId: entrada.alumnaId, clave: entrada.clave } : {};
   const resp = await fetch(API_URL, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ accion, alumnaId: activa?.alumnaId, clave: activa?.clave, ...datos }),
+    headers,
+    body: JSON.stringify({ accion, ...extra, ...datos }),
   });
-  return await resp.json();
+  const r = await resp.json();
+  if (resp.status === 401 && entrada && accion !== "cerrarSesion") sesionTerminada(entrada);
+  if (resp.status === 429) r.error = textoBloqueo(r.reintentarEnSegundos);
+  return r;
+}
+
+// ---------------------------------------------------------------
+// DEMASIADOS INTENTOS (429) — el Worker dice cuántos segundos faltan
+// (reintentarEnSegundos). En el login se deja el botón apagado con una
+// cuenta regresiva para que se vea cuánto falta.
+// ---------------------------------------------------------------
+function textoEspera(segundos) {
+  const s = Math.max(0, Math.ceil(Number(segundos) || 0));
+  const m = Math.floor(s / 60);
+  return m ? `${m} min ${String(s % 60).padStart(2, "0")} s` : `${s} s`;
+}
+
+function textoBloqueo(segundos) {
+  return `Demasiados intentos fallidos. Podrás intentar de nuevo en ${textoEspera(segundos)}.`;
+}
+
+let intervaloBloqueoLogin = null;
+function mostrarBloqueoLogin(segundos) {
+  clearInterval(intervaloBloqueoLogin);
+  const hasta = Date.now() + (Number(segundos) || 60) * 1000;
+  const pintar = () => {
+    const faltan = (hasta - Date.now()) / 1000;
+    if (faltan <= 0) {
+      clearInterval(intervaloBloqueoLogin);
+      el("mensajeErrorEntrarPortal").textContent = "Ya puedes volver a intentarlo.";
+      el("btnEntrarPortal").disabled = false;
+      return;
+    }
+    el("mensajeErrorEntrarPortal").textContent = textoBloqueo(faltan);
+    el("btnEntrarPortal").disabled = true;
+  };
+  pintar();
+  intervaloBloqueoLogin = setInterval(pintar, 1000);
 }
 
 function escaparHtml(t) {
@@ -39,8 +85,22 @@ function escaparHtml(t) {
   return d.innerHTML;
 }
 
+// Solo para el logo (que sigue siendo público) y para el respaldo de
+// urlFotoAlumna(). La foto del alumno viene ya firmada (fotoUrl).
 function urlFoto(fotoKey) {
   return fotoKey ? `${API_URL}/foto?key=${encodeURIComponent(fotoKey)}` : "";
+}
+
+// Las URLs firmadas duran 1 hora. La que quedó guardada en el teléfono
+// solo se usa si es reciente; si no, se espera a la nueva que manda
+// portalConsultarAlumna al abrir el panel.
+const MS_URL_FOTO_VIGENTE = 45 * 60 * 1000;
+
+function urlFotoAlumna(entrada) {
+  if (!entrada.fotoKey) return "";
+  // Respaldo sin firma si el Worker no manda fotoUrl — quitar en Fase 1c.
+  if (!entrada.fotoUrl) return urlFoto(entrada.fotoKey);
+  return Date.now() - (entrada.fotoUrlEn || 0) < MS_URL_FOTO_VIGENTE ? entrada.fotoUrl : "";
 }
 
 function formatearFechaHora(fechaSql) {
@@ -184,7 +244,8 @@ function cargarAlumnasDeDisco() {
   } catch (e) {
     alumnasGuardadas = [];
   }
-  alumnaActivaId = localStorage.getItem("biometrico_portal_alumna_activa") || null;
+  // localStorage lo devuelve como texto y los alumnaId son números.
+  alumnaActivaId = Number(localStorage.getItem("biometrico_portal_alumna_activa")) || null;
   if (!alumnasGuardadas.some((a) => a.alumnaId === alumnaActivaId)) {
     alumnaActivaId = alumnasGuardadas[0]?.alumnaId || null;
   }
@@ -201,224 +262,183 @@ function guardarAlumnasConNotificacionesActivas(set) {
 }
 
 // ---------------------------------------------------------------
-// PASO 1: buscar academia
+// PANTALLAS DE ENTRADA
 // ---------------------------------------------------------------
-// Cuando el link trae "?academia=ID" (el que cada academia comparte
-// con sus papás desde su panel), se salta esta pantalla por completo
-// y se va directo al paso 2 ya con los datos de ESA academia — así
-// nadie tiene que escribir ni adivinar un nombre, y de paso no queda
-// a la vista un buscador con el que cualquiera podría fisgonear si
-// otra academia también usa este sistema.
-let llegoPorLinkDirecto = false;
+// Se entra con el código del alumno + su PIN del portal, dentro de la
+// academia que viene en el link "portal.html?academia=ID" (el que cada
+// academia comparte con sus papás desde su panel). Ya no hay lista de
+// nombres ni buscador de academias: sin ese link no se sabe a qué
+// academia pertenece el código, así que se pide abrir el link.
+const MENSAJE_SESION_VENCIDA = "La sesión terminó. Vuelve a entrar con el código y el PIN.";
 
-function mostrarPantallaBuscarAcademia() {
-  el("pantallaBuscarAcademia").hidden = false;
-  el("pantallaElegirAlumna").hidden = true;
-  el("pantallaOlvidePortal").hidden = true;
+function ocultarPantallas() {
+  el("pantallaSinEnlace").hidden = true;
+  el("pantallaLoginPortal").hidden = true;
   el("pantallaRestablecerPortal").hidden = true;
   el("pantallaPortalPanel").hidden = true;
-  el("inputPortalAcademia").value = "";
-  el("mensajeErrorBuscarAcademia").textContent = "";
 }
 
-function mostrarPaso2ConAlumnas(academiaId, academiaNombre, alumnas, colorMarca, logoKey) {
-  alumnasParaElegir = { academiaId, academiaNombre, alumnas };
+function mostrarPantallaSinEnlace() {
+  ocultarPantallas();
+  aplicarMarca(null);
+  aplicarLogoEnHeader(null);
+  el("pantallaSinEnlace").hidden = false;
+}
 
-  // Se aplica de una vez el color de ESTA academia (en vez de dejar el
-  // rosado por defecto hasta que entren con su clave) — así la
-  // pantalla de "elige a tu hijo" ya sale vestida igual que el resto
-  // del portal de esa academia.
-  aplicarMarca(colorMarca || null);
-  aplicarLogoEnHeader(logoKey || null);
+function mostrarLogin(academiaId, mensaje) {
+  if (!academiaId) { mostrarPantallaSinEnlace(); return; }
+  academiaIdLogin = Number(academiaId);
 
-  const select = el("selectAlumnaPortal");
-  select.innerHTML = alumnas.map((a) => `<option value="${a.id}">${escaparHtml(a.nombre)}</option>`).join("");
-  el("subtituloElegirAlumna").textContent = `Elige el nombre de tu hijo en ${academiaNombre} y escribe su contraseña del portal.`;
+  // Si en este dispositivo ya hay un hermano de esa misma academia, la
+  // pantalla sale de una vez con su color y su logo; si no, con los de
+  // por defecto (no hay forma pública de pedirlos sin iniciar sesión —
+  // pendiente para la Fase 1c).
+  const hermano = alumnasGuardadas.find((a) => Number(a.academiaId) === academiaIdLogin);
+  aplicarMarca(hermano?.colorMarca || null);
+  aplicarLogoEnHeader(hermano?.logoKey || null);
+  const esEmpresa = hermano?.tipoCliente === "empresa";
+  el("subtituloLoginPortal").textContent = hermano?.academiaNombre
+    ? `Escribe el código ${esEmpresa ? "del empleado" : "de tu hijo"} en ${hermano.academiaNombre} y su PIN del portal.`
+    : "Escribe el código del alumno y su PIN del portal.";
+
+  el("inputPortalCodigo").value = "";
   el("inputPortalClave").value = "";
-  el("mensajeErrorEntrarPortal").textContent = "";
+  el("textoOlvidePin").hidden = true;
+  el("mensajeErrorEntrarPortal").textContent = mensaje || "";
+  el("btnVolverPanelPortal").hidden = !alumnasGuardadas.length;
 
-  el("pantallaBuscarAcademia").hidden = true;
-  el("pantallaOlvidePortal").hidden = true;
-  el("pantallaRestablecerPortal").hidden = true;
-  el("pantallaPortalPanel").hidden = true;
-  el("pantallaElegirAlumna").hidden = false;
-
-  // Si llegaron por el link directo de su academia, no tiene caso
-  // ofrecerles "cambiar de academia" — ese botón solo aplica para
-  // quien entró buscando el nombre a mano.
-  el("btnVolverBuscarAcademia").hidden = llegoPorLinkDirecto;
+  ocultarPantallas();
+  el("pantallaLoginPortal").hidden = false;
 }
 
-async function cargarAlumnasPorAcademiaId(academiaId) {
-  try {
-    const r = await fetch(API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ accion: "portalListarAlumnas", academiaId }),
-    }).then((resp) => resp.json());
-
-    if (!r.success || !r.alumnas.length) {
-      // El link ya no sirve (academia borrada/desactivada, o todavía
-      // sin alumnos) — se cae de vuelta a la pantalla de buscar, con
-      // el aviso correspondiente, en vez de dejar al papá atorado.
-      llegoPorLinkDirecto = false;
-      mostrarPantallaBuscarAcademia();
-      el("mensajeErrorBuscarAcademia").textContent = !r.success
-        ? (r.error || "No se pudo abrir el portal de esa cuenta.")
-        : "Esa cuenta todavía no tiene alumnos registrados.";
-      return;
-    }
-
-    mostrarPaso2ConAlumnas(r.academiaId, r.academiaNombre, r.alumnas, r.colorMarca, r.logoKey);
-  } catch (e) {
-    llegoPorLinkDirecto = false;
-    mostrarPantallaBuscarAcademia();
-    el("mensajeErrorBuscarAcademia").textContent = "No se pudo conectar. Revisa tu conexión.";
-  }
+// Datos que se guardan de cada alumno a partir de la respuesta de
+// portalLoginCodigo (o de portalLogin, al migrar una sesión vieja).
+function entradaDesdeLogin(r) {
+  return {
+    alumnaId: r.alumnaId, token: r.token, expiraEn: r.expiraEn,
+    nombre: r.nombre, codigo: r.codigo, fotoKey: r.fotoKey,
+    fotoUrl: r.fotoUrl || null, fotoUrlEn: Date.now(),
+    clasesPorMes: r.clasesPorMes, academiaId: r.academiaId, academiaNombre: r.academiaNombre,
+    colorMarca: r.colorMarca, logoKey: r.logoKey,
+    tipoCliente: r.tipoCliente || "academia",
+  };
 }
 
-el("btnBuscarAcademia").addEventListener("click", async () => {
-  const nombreAcademia = el("inputPortalAcademia").value.trim();
-  el("mensajeErrorBuscarAcademia").textContent = "";
-  if (!nombreAcademia) { el("mensajeErrorBuscarAcademia").textContent = "Escribe el nombre de tu cuenta."; return; }
-
-  el("btnBuscarAcademia").disabled = true;
-  try {
-    const r = await fetch(API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ accion: "portalListarAlumnas", academiaNombre: nombreAcademia }),
-    }).then((resp) => resp.json());
-
-    if (!r.success) { el("mensajeErrorBuscarAcademia").textContent = r.error || "No se pudo continuar."; return; }
-    if (!r.alumnas.length) { el("mensajeErrorBuscarAcademia").textContent = "Esa cuenta todavía no tiene alumnos registrados."; return; }
-
-    llegoPorLinkDirecto = false;
-    mostrarPaso2ConAlumnas(r.academiaId, r.academiaNombre || nombreAcademia, r.alumnas, r.colorMarca, r.logoKey);
-  } catch (e) {
-    el("mensajeErrorBuscarAcademia").textContent = "No se pudo conectar. Revisa tu conexión.";
-  } finally {
-    el("btnBuscarAcademia").disabled = false;
-  }
-});
-
-el("btnVolverBuscarAcademia").addEventListener("click", () => {
-  llegoPorLinkDirecto = false;
-  mostrarPantallaBuscarAcademia();
-});
-
-// ---------------------------------------------------------------
-// PASO 2: elegir alumno + contraseña → entrar
-// ---------------------------------------------------------------
-el("btnEntrarPortal").addEventListener("click", async () => {
-  const alumnaId = Number(el("selectAlumnaPortal").value);
+async function entrarPortal() {
+  const codigo = Number(el("inputPortalCodigo").value.trim());
   const clave = el("inputPortalClave").value.trim();
   el("mensajeErrorEntrarPortal").textContent = "";
-  if (!clave) { el("mensajeErrorEntrarPortal").textContent = "Escribe la contraseña."; return; }
+  if (!codigo) { el("mensajeErrorEntrarPortal").textContent = "Escribe el código del alumno."; return; }
+  if (!clave) { el("mensajeErrorEntrarPortal").textContent = "Escribe el PIN."; return; }
 
   el("btnEntrarPortal").disabled = true;
+  let bloqueado = false;
   try {
-    const r = await fetch(API_URL, {
+    const resp = await fetch(API_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ accion: "portalLogin", alumnaId, clave }),
-    }).then((resp) => resp.json());
+      body: JSON.stringify({ accion: "portalLoginCodigo", academiaId: academiaIdLogin, codigo, clave }),
+    });
+    const r = await resp.json();
 
+    if (resp.status === 429) {
+      bloqueado = true;
+      mostrarBloqueoLogin(r.reintentarEnSegundos);
+      return;
+    }
     if (!r.success) {
       el("mensajeErrorEntrarPortal").textContent = r.error || "No se pudo entrar.";
       return;
     }
 
-    const entrada = {
-      alumnaId: r.alumnaId, clave, nombre: r.nombre, codigo: r.codigo, fotoKey: r.fotoKey,
-      clasesPorMes: r.clasesPorMes, academiaId: r.academiaId, academiaNombre: r.academiaNombre,
-      colorMarca: r.colorMarca, logoKey: r.logoKey,
-      tipoCliente: r.tipoCliente || "academia",
-    };
+    const entrada = entradaDesdeLogin(r);
     alumnasGuardadas = alumnasGuardadas.filter((a) => a.alumnaId !== entrada.alumnaId);
     alumnasGuardadas.push(entrada);
     alumnaActivaId = entrada.alumnaId;
     guardarAlumnasEnDisco();
+    el("inputPortalClave").value = "";
     ajustarInterfazPortalSegunTipo();
 
     mostrarPanel();
   } catch (e) {
     el("mensajeErrorEntrarPortal").textContent = "No se pudo conectar. Revisa tu conexión.";
   } finally {
-    el("btnEntrarPortal").disabled = false;
+    el("btnEntrarPortal").disabled = bloqueado;
   }
+}
+
+el("btnEntrarPortal").addEventListener("click", entrarPortal);
+el("inputPortalClave").addEventListener("keydown", (e) => { if (e.key === "Enter") entrarPortal(); });
+
+// "Olvidé mi PIN": por ahora la recuperación por correo necesita el id
+// interno del alumno, que ya no se conoce sin la lista de nombres
+// (pendiente para la Fase 1c) — mientras tanto, la academia le genera
+// un PIN nuevo desde su panel.
+el("btnOlvidePin").addEventListener("click", () => {
+  el("textoOlvidePin").hidden = !el("textoOlvidePin").hidden;
+});
+
+el("btnVolverPanelPortal").addEventListener("click", () => {
+  if (alumnasGuardadas.length) mostrarPanel();
 });
 
 el("btnAgregarOtraAlumna").addEventListener("click", () => {
-  // Casi siempre es para agregar a un hermano de la MISMA academia
-  // que ya está usando este dispositivo — así que, en vez de mandar
-  // al papá a escribir el nombre de la academia otra vez (como si no
-  // supiéramos ya cuál es), se va directo a la lista de alumnos de
-  // esa academia para que elija y ponga la contraseña. Si de verdad
-  // es de otra academia, en esa misma pantalla sigue disponible
-  // "← Cambiar de academia" para buscarla a mano.
-  llegoPorLinkDirecto = false;
-  const activa = alumnaActivaId ? alumnasGuardadas.find((a) => a.alumnaId === alumnaActivaId) : null;
-  const referencia = activa || alumnasGuardadas[0];
-  if (referencia && referencia.academiaId) {
-    el("pantallaBuscarAcademia").hidden = true;
-    el("pantallaPortalPanel").hidden = true;
-    cargarAlumnasPorAcademiaId(referencia.academiaId);
-  } else {
-    // Caso raro: no hay ninguna academiaId guardada todavía (por
-    // ejemplo, alumnos agregados antes de que existiera este dato) —
-    // se cae de vuelta al buscador, como antes.
-    mostrarPantallaBuscarAcademia();
-  }
+  // Casi siempre es para agregar a un hermano de la MISMA academia que
+  // ya está usando este dispositivo — se abre directo el login de esa
+  // academia. Si es de otra academia, tienen que abrir el link de esa.
+  const referencia = alumnaActiva() || alumnasGuardadas[0];
+  mostrarLogin(referencia?.academiaId);
 });
 
 // ---------------------------------------------------------------
-// "Olvidé mi contraseña" del portal
+// Sesión que terminó (401) — se quita SOLO a ese alumno de este
+// dispositivo (los hermanos siguen igual) y se manda al login de su
+// academia con un aviso.
 // ---------------------------------------------------------------
-let alumnaIdParaOlvide = null;
+function sesionTerminada(entrada) {
+  if (!alumnasGuardadas.some((a) => a.alumnaId === entrada.alumnaId)) return; // ya se atendió
+  quitarDeLaLista(entrada.alumnaId);
+  mostrarLogin(entrada.academiaId, `La sesión de ${entrada.nombre} terminó. Vuelve a entrar con su código y su PIN.`);
+}
 
-el("btnMostrarOlvidePortal").addEventListener("click", () => {
-  alumnaIdParaOlvide = Number(el("selectAlumnaPortal").value);
-  el("pantallaElegirAlumna").hidden = true;
-  el("pantallaOlvidePortal").hidden = false;
-  el("inputOlvidePortalEmail").value = "";
-  el("mensajeErrorOlvidePortal").textContent = "";
-  el("mensajeExitoOlvidePortal").textContent = "";
-});
-
-el("btnCancelarOlvidePortal").addEventListener("click", () => {
-  el("pantallaOlvidePortal").hidden = true;
-  el("pantallaElegirAlumna").hidden = false;
-});
-
-el("btnEnviarOlvidePortal").addEventListener("click", async () => {
-  const email = el("inputOlvidePortalEmail").value.trim();
-  el("mensajeErrorOlvidePortal").textContent = "";
-  el("mensajeExitoOlvidePortal").textContent = "";
-  if (!email) { el("mensajeErrorOlvidePortal").textContent = "Escribe tu correo."; return; }
-
-  el("btnEnviarOlvidePortal").disabled = true;
-  try {
-    const r = await fetch(API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        accion: "portalSolicitarRecuperacion",
-        alumnaId: alumnaIdParaOlvide,
-        email,
-        origenPortal: location.origin + location.pathname,
-      }),
-    }).then((resp) => resp.json());
-
-    if (!r.success) { el("mensajeErrorOlvidePortal").textContent = r.error || "No se pudo enviar."; return; }
-    el("mensajeExitoOlvidePortal").textContent = r.mensaje;
-  } catch (e) {
-    el("mensajeErrorOlvidePortal").textContent = "No se pudo conectar. Revisa tu conexión.";
-  } finally {
-    el("btnEnviarOlvidePortal").disabled = false;
+// ---------------------------------------------------------------
+// Migración de alumnos guardados antes de los tokens (con la clave en
+// el teléfono): se cambia la clave de cada uno por un token UNA vez y
+// se borra — sin pedirle nada a los papás. Si no se puede ahora (sin
+// internet, demasiados intentos...), se sigue usando la clave por el
+// camino viejo y se reintenta más tarde.
+// ---------------------------------------------------------------
+async function migrarSesionesViejas() {
+  for (const entrada of alumnasGuardadas.filter((a) => a.clave && !a.token)) {
+    try {
+      // Con academia + código se usa el login nuevo; los alumnos que se
+      // guardaron antes de que existiera academiaId usan el viejo.
+      const datos = entrada.academiaId && entrada.codigo
+        ? { accion: "portalLoginCodigo", academiaId: Number(entrada.academiaId), codigo: Number(entrada.codigo), clave: entrada.clave }
+        : { accion: "portalLogin", alumnaId: entrada.alumnaId, clave: entrada.clave };
+      const resp = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(datos),
+      });
+      const r = await resp.json();
+      if (!r.success || !r.token) continue;
+      // Puede que mientras tanto la hayan quitado de este dispositivo.
+      const actual = alumnasGuardadas.find((a) => a.alumnaId === entrada.alumnaId);
+      if (!actual || actual.token) continue;
+      Object.assign(actual, entradaDesdeLogin(r));
+      delete actual.clave;
+      guardarAlumnasEnDisco();
+    } catch (e) {
+      // Se reintenta en el siguiente ciclo.
+    }
   }
-});
+}
 
+// ---------------------------------------------------------------
+// "Olvidé mi contraseña" del portal — paso 2 (llega del correo,
+// portal.html?recuperar=TOKEN). El paso 1 se quitó (ver btnOlvidePin).
+// ---------------------------------------------------------------
 el("btnRestablecerPortalClave").addEventListener("click", async () => {
   const params = new URLSearchParams(location.search);
   const token = params.get("recuperar");
@@ -433,18 +453,23 @@ el("btnRestablecerPortalClave").addEventListener("click", async () => {
 
   el("btnRestablecerPortalClave").disabled = true;
   try {
-    const r = await fetch(API_URL, {
+    const resp = await fetch(API_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ accion: "portalRestablecerClave", token, claveNueva }),
-    }).then((resp) => resp.json());
+    });
+    const r = await resp.json();
+    if (resp.status === 429) r.error = textoBloqueo(r.reintentarEnSegundos);
 
     if (!r.success) { el("mensajeErrorRestablecerPortal").textContent = r.error || "No se pudo actualizar."; return; }
     el("mensajeExitoRestablecerPortal").textContent = "¡Listo! Ya puedes iniciar sesión con tu contraseña nueva.";
     history.replaceState(null, "", location.pathname);
     setTimeout(() => {
-      el("pantallaRestablecerPortal").hidden = true;
-      mostrarPantallaBuscarAcademia();
+      cargarAlumnasDeDisco();
+      // El servidor cerró las sesiones de ese alumno al cambiar la
+      // contraseña; si estaba guardado aquí, el 401 lo manda al login.
+      if (alumnasGuardadas.length) mostrarPanel();
+      else mostrarPantallaSinEnlace();
     }, 1800);
   } catch (e) {
     el("mensajeErrorRestablecerPortal").textContent = "No se pudo conectar. Revisa tu conexión.";
@@ -468,17 +493,14 @@ function pintarSelectorAlumnas() {
 }
 
 async function mostrarPanel() {
-  el("pantallaBuscarAcademia").hidden = true;
-  el("pantallaElegirAlumna").hidden = true;
-  el("pantallaOlvidePortal").hidden = true;
-  el("pantallaRestablecerPortal").hidden = true;
+  ocultarPantallas();
   el("pantallaPortalPanel").hidden = false;
   await seleccionarAlumna(alumnaActivaId);
 }
 
 async function seleccionarAlumna(alumnaId) {
   const entrada = alumnasGuardadas.find((a) => a.alumnaId === alumnaId);
-  if (!entrada) { mostrarPantallaBuscarAcademia(); return; }
+  if (!entrada) { mostrarPantallaSinEnlace(); return; }
 
   alumnaActivaId = alumnaId;
   guardarAlumnasEnDisco();
@@ -489,7 +511,7 @@ async function seleccionarAlumna(alumnaId) {
   el("tituloPortalAcademia").textContent = `👨‍👩‍👧 ${entrada.academiaNombre}`;
   el("nombreAlumnaPortal").textContent = entrada.nombre;
   el("codigoAlumnaPortal").textContent = `#${entrada.codigo}`;
-  pintarFotoAlumna(entrada.fotoKey);
+  pintarFotoAlumna(urlFotoAlumna(entrada));
   el("statClasesEsteMes").textContent = "—";
   el("inputEmailFamiliaPortal").value = "";
   el("mensajeErrorPush").textContent = "";
@@ -497,15 +519,15 @@ async function seleccionarAlumna(alumnaId) {
   actualizarBotonPush();
 
   try {
-    const r = await llamar("portalConsultarAlumna", {});
+    const r = await llamar("portalConsultarAlumna", {}, entrada);
+    // Un 401 (sesión terminada) ya lo quitó de este dispositivo y mandó
+    // al login desde llamar(); cualquier otro error deja lo que ya había.
     if (!r.success) {
-      // La sesión guardada para este alumno ya no sirve (le cambiaron
-      // la clave desde otro lado, etc.) — se quita sola de este
-      // dispositivo para no dejarla "pegada" sin funcionar.
-      quitarAlumnaDelDispositivo(alumnaId, false);
-      return;
+      if (!alumnasGuardadas.includes(entrada)) return;
+      throw new Error(r.error);
     }
     entrada.nombre = r.nombre; entrada.codigo = r.codigo; entrada.fotoKey = r.fotoKey;
+    entrada.fotoUrl = r.fotoUrl || null; entrada.fotoUrlEn = Date.now();
     entrada.clasesPorMes = r.clasesPorMes; entrada.colorMarca = r.academia.colorMarca; entrada.logoKey = r.academia.logoKey;
     entrada.academiaNombre = r.academia.nombre;
     entrada.tipoCliente = r.academia.tipoCliente || "academia";
@@ -517,7 +539,7 @@ async function seleccionarAlumna(alumnaId) {
     el("tituloPortalAcademia").textContent = `👨‍👩‍👧 ${entrada.academiaNombre}`;
     el("nombreAlumnaPortal").textContent = entrada.nombre;
     el("codigoAlumnaPortal").textContent = `#${entrada.codigo}`;
-    pintarFotoAlumna(entrada.fotoKey);
+    pintarFotoAlumna(urlFotoAlumna(entrada));
     el("statClasesEsteMes").textContent = `${r.clasesEsteMes} / ${r.clasesPorMes}`;
     el("inputEmailFamiliaPortal").value = r.emailFamilia || "";
   } catch (e) {
@@ -543,10 +565,10 @@ function ajustarInterfazPortalSegunTipo() {
   if (btnAgregar) btnAgregar.textContent = esEmpresa ? "+ Agregar otro empleado" : "+ Agregar otro alumno";
 }
 
-function pintarFotoAlumna(fotoKey) {
+function pintarFotoAlumna(url) {
   const img = el("fotoAlumnaPortal");
   const vacia = el("fotoAlumnaPortalVacia");
-  if (fotoKey) { img.src = urlFoto(fotoKey); img.hidden = false; vacia.hidden = true; }
+  if (url) { img.src = url; img.hidden = false; vacia.hidden = true; }
   else { img.hidden = true; vacia.hidden = false; }
 }
 
@@ -798,8 +820,15 @@ el("btnCambiarClavePortal").addEventListener("click", async () => {
     const r = await llamar("portalCambiarClave", { claveNueva });
     if (!r.success) { el("mensajeErrorClavePortal").textContent = r.error || "No se pudo cambiar."; return; }
 
-    const entrada = alumnasGuardadas.find((a) => a.alumnaId === alumnaActivaId);
-    if (entrada) { entrada.clave = claveNueva; guardarAlumnasEnDisco(); }
+    // Con token no hay nada que actualizar: el servidor deja viva esta
+    // sesión y cierra la de los demás teléfonos. Solo un alumno sin
+    // migrar (que todavía usa la clave en cada llamada) necesita la nueva.
+    const entrada = alumnaActiva();
+    if (entrada?.clave) {
+      entrada.clave = claveNueva;
+      guardarAlumnasEnDisco();
+      migrarSesionesViejas();
+    }
 
     el("mensajeExitoClavePortal").textContent = "Contraseña actualizada.";
     el("inputClaveNuevaPortal").value = "";
@@ -815,30 +844,60 @@ el("btnQuitarAlumnaPortal").addEventListener("click", () => {
   const entrada = alumnasGuardadas.find((a) => a.alumnaId === alumnaActivaId);
   if (!entrada) return;
   if (!window.confirm(`¿Quitar a "${entrada.nombre}" de este dispositivo? Su historial y su cuenta NO se borran — puedes volver a agregarla cuando quieras.`)) return;
-  quitarAlumnaDelDispositivo(alumnaActivaId, true);
+  quitarAlumnaDelDispositivo(alumnaActivaId);
 });
 
-async function quitarAlumnaDelDispositivo(alumnaId, avisarPush) {
-  if (avisarPush) {
-    const activas = alumnasConNotificacionesActivas();
-    if (activas.has(alumnaId)) {
-      try {
-        const registro = await navigator.serviceWorker.getRegistration();
-        const suscripcion = registro ? await registro.pushManager.getSubscription() : null;
-        if (suscripcion) await llamar("portalDesuscribirPush", { endpoint: suscripcion.endpoint });
-      } catch (e) { /* mejor esfuerzo — no bloquea quitarla igual */ }
-      activas.delete(alumnaId);
-      guardarAlumnasConNotificacionesActivas(activas);
-    }
+// Apaga los avisos de ese alumno en este dispositivo y cierra su sesión
+// en el servidor (mejor esfuerzo: si falla por red, igual se quita).
+async function cerrarSesionDeAlumna(entrada) {
+  const activas = alumnasConNotificacionesActivas();
+  if (activas.has(entrada.alumnaId)) {
+    try {
+      const registro = await navigator.serviceWorker.getRegistration();
+      const suscripcion = registro ? await registro.pushManager.getSubscription() : null;
+      if (suscripcion) await llamar("portalDesuscribirPush", { endpoint: suscripcion.endpoint }, entrada);
+    } catch (e) { /* mejor esfuerzo — no bloquea quitarla igual */ }
+    activas.delete(entrada.alumnaId);
+    guardarAlumnasConNotificacionesActivas(activas);
   }
+  if (entrada.token) {
+    try { await llamar("cerrarSesion", {}, entrada); } catch (e) { /* mejor esfuerzo */ }
+  }
+}
 
+function quitarDeLaLista(alumnaId) {
   alumnasGuardadas = alumnasGuardadas.filter((a) => a.alumnaId !== alumnaId);
-  alumnaActivaId = alumnasGuardadas[0]?.alumnaId || null;
+  if (alumnaActivaId === alumnaId) alumnaActivaId = alumnasGuardadas[0]?.alumnaId || null;
   guardarAlumnasEnDisco();
+}
+
+async function quitarAlumnaDelDispositivo(alumnaId) {
+  const entrada = alumnasGuardadas.find((a) => a.alumnaId === alumnaId);
+  if (!entrada) return;
+  await cerrarSesionDeAlumna(entrada);
+  quitarDeLaLista(alumnaId);
 
   if (alumnasGuardadas.length) mostrarPanel();
-  else mostrarPantallaBuscarAcademia();
+  else mostrarLogin(entrada.academiaId);
 }
+
+// Cerrar sesión: se cierran TODOS los alumnos guardados en este
+// dispositivo (para un teléfono prestado o que se va a cambiar).
+el("btnCerrarSesionPortal").addEventListener("click", async () => {
+  const texto = alumnasGuardadas.length > 1
+    ? "¿Cerrar sesión en este dispositivo? Se quitan todos los alumnos guardados aquí; para volver a verlos vas a necesitar su código y su PIN."
+    : "¿Cerrar sesión en este dispositivo? Para volver a entrar vas a necesitar el código y el PIN.";
+  if (!window.confirm(texto)) return;
+
+  el("btnCerrarSesionPortal").disabled = true;
+  const academiaId = (alumnaActiva() || alumnasGuardadas[0])?.academiaId;
+  for (const entrada of [...alumnasGuardadas]) await cerrarSesionDeAlumna(entrada);
+  alumnasGuardadas = [];
+  alumnaActivaId = null;
+  guardarAlumnasEnDisco();
+  el("btnCerrarSesionPortal").disabled = false;
+  mostrarLogin(academiaId);
+});
 
 // ---------------------------------------------------------------
 // Arranque
@@ -846,34 +905,37 @@ async function quitarAlumnaDelDispositivo(alumnaId, avisarPush) {
 (function iniciar() {
   const params = new URLSearchParams(location.search);
   if (params.get("recuperar")) {
-    el("pantallaBuscarAcademia").hidden = true;
+    ocultarPantallas();
     el("pantallaRestablecerPortal").hidden = false;
     return;
   }
 
   cargarAlumnasDeDisco();
 
-  // "?academia=ID" es el link que cada academia comparte con sus
-  // papás desde su panel — lleva directo al paso 2 (elegir alumno) de
-  // ESA academia, sin buscador de por medio. Si en este dispositivo ya
-  // hay un alumno guardado de esa misma academia, se ignora el link y
-  // se muestra el panel normal (no tiene caso volver a pedir clave);
-  // si es la primera vez (o es para agregar un segundo hijo de otra
-  // academia), se va directo al paso 2.
+  // Alumnos cuya sesión ya venció (por fecha) se quitan de una vez.
+  const vencidas = alumnasGuardadas.filter((a) => a.expiraEn && new Date(a.expiraEn).getTime() <= Date.now());
+  vencidas.forEach((a) => quitarDeLaLista(a.alumnaId));
+
+  // "?academia=ID" es el link que cada academia comparte con sus papás
+  // desde su panel — lleva directo al login de ESA academia. Si en este
+  // dispositivo ya hay un alumno guardado de esa misma academia, se
+  // muestra el panel normal (no tiene caso volver a pedir el PIN).
   const academiaDelLink = Number(params.get("academia")) || null;
   const yaTieneAlumnaDeEsaAcademia = academiaDelLink
     && alumnasGuardadas.some((a) => Number(a.academiaId) === academiaDelLink);
 
   if (academiaDelLink && !yaTieneAlumnaDeEsaAcademia) {
-    llegoPorLinkDirecto = true;
-    el("pantallaBuscarAcademia").hidden = true;
-    el("pantallaPortalPanel").hidden = true;
-    cargarAlumnasPorAcademiaId(academiaDelLink);
+    mostrarLogin(academiaDelLink);
   } else if (alumnasGuardadas.length) {
     mostrarPanel();
+  } else if (vencidas.length) {
+    mostrarLogin(vencidas[0].academiaId, MENSAJE_SESION_VENCIDA);
   } else {
-    mostrarPantallaBuscarAcademia();
+    mostrarPantallaSinEnlace();
   }
+
+  migrarSesionesViejas();
+  setInterval(migrarSesionesViejas, 5 * 60 * 1000);
 })();
 
 // ---------------------------------------------------------------

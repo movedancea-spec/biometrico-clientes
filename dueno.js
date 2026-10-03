@@ -10,20 +10,113 @@ const API_URL = "https://biometrico-saas.movedancea.workers.dev";
 // nueva de los archivos — ver verificarActualizacion() al final de
 // este archivo. NO cambiar este valor a mano: lo actualiza el script
 // actualizar-versiones.mjs cada vez que algo cambia.
-const VERSION_APP = "59e75fabac0c";
+const VERSION_APP = "74da08c454b1";
 
 const el = (id) => document.getElementById(id);
 
-let claveDueno = localStorage.getItem("biometrico_clave_dueno") || "";
+// Sesión del dueño: { token, expiraEn }. La contraseña ya NO se guarda
+// — solo el token que devuelve duenoLogin. "claveVieja" solo existe
+// mientras se migra una sesión de antes de los tokens (ver
+// migrarSesionVieja más abajo) y se borra apenas hay token.
+let sesion = null;
 let academiaEditandoId = null;
 
+const MENSAJE_SESION_VENCIDA = "Tu sesión terminó. Vuelve a escribir tu clave para seguir.";
+
 async function llamar(accion, datos) {
+  const headers = { "Content-Type": "application/json" };
+  if (sesion?.token) headers.Authorization = `Bearer ${sesion.token}`;
+  const extra = !sesion?.token && sesion?.claveVieja ? { claveDueno: sesion.claveVieja } : {};
+  const resp = await fetch(API_URL, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ accion, ...extra, ...datos }),
+  });
+  const r = await resp.json();
+  if (resp.status === 401 && sesion) volverALogin(MENSAJE_SESION_VENCIDA);
+  if (resp.status === 429) r.error = textoBloqueo(r.reintentarEnSegundos);
+  return r;
+}
+
+// ---------------------------------------------------------------
+// DEMASIADOS INTENTOS (429) — el Worker dice cuántos segundos faltan
+// (reintentarEnSegundos). En el login se deja el botón apagado con una
+// cuenta regresiva para que se vea cuánto falta.
+// ---------------------------------------------------------------
+function textoEspera(segundos) {
+  const s = Math.max(0, Math.ceil(Number(segundos) || 0));
+  const m = Math.floor(s / 60);
+  return m ? `${m} min ${String(s % 60).padStart(2, "0")} s` : `${s} s`;
+}
+
+function textoBloqueo(segundos) {
+  return `Demasiados intentos fallidos. Podrás intentar de nuevo en ${textoEspera(segundos)}.`;
+}
+
+let intervaloBloqueoLogin = null;
+function mostrarBloqueoLogin(segundos) {
+  clearInterval(intervaloBloqueoLogin);
+  const hasta = Date.now() + (Number(segundos) || 60) * 1000;
+  const pintar = () => {
+    const faltan = (hasta - Date.now()) / 1000;
+    if (faltan <= 0) {
+      clearInterval(intervaloBloqueoLogin);
+      el("mensajeErrorLogin").textContent = "Ya puedes volver a intentarlo.";
+      el("btnEntrarDueno").disabled = false;
+      return;
+    }
+    el("mensajeErrorLogin").textContent = textoBloqueo(faltan);
+    el("btnEntrarDueno").disabled = true;
+  };
+  pintar();
+  intervaloBloqueoLogin = setInterval(pintar, 1000);
+}
+
+// ---------------------------------------------------------------
+// SESIÓN GUARDADA
+// ---------------------------------------------------------------
+function guardarSesion(s) {
+  sesion = s;
+  localStorage.setItem("biometrico_sesion_dueno", JSON.stringify(s));
+}
+
+function cargarSesionGuardada() {
+  try {
+    const cruda = localStorage.getItem("biometrico_sesion_dueno");
+    if (cruda) return JSON.parse(cruda);
+  } catch (e) { /* dato corrupto — se ignora */ }
+  // Sesión de antes de los tokens: solo la clave suelta.
+  const claveVieja = localStorage.getItem("biometrico_clave_dueno");
+  return claveVieja ? { claveVieja } : null;
+}
+
+function sesionVencida(s) {
+  return s && s.expiraEn && new Date(s.expiraEn).getTime() <= Date.now();
+}
+
+async function pedirToken(claveDueno) {
   const resp = await fetch(API_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ accion, ...datos }),
+    body: JSON.stringify({ accion: "duenoLogin", claveDueno }),
   });
-  return await resp.json();
+  return { status: resp.status, r: await resp.json() };
+}
+
+// Migración: si este navegador todavía tiene la clave guardada de antes,
+// se cambia UNA vez por un token y la clave se borra. Si no se puede
+// ahora (sin internet, demasiados intentos...), se sigue usando la
+// clave por el camino viejo y se reintenta más tarde.
+async function migrarSesionVieja() {
+  if (!sesion?.claveVieja || sesion.token) return;
+  try {
+    const { r } = await pedirToken(sesion.claveVieja);
+    if (!r.success || !r.token || !sesion?.claveVieja) return;
+    guardarSesion({ token: r.token, expiraEn: r.expiraEn });
+    localStorage.removeItem("biometrico_clave_dueno");
+  } catch (e) {
+    // Se reintenta en el siguiente ciclo.
+  }
 }
 
 // ---------------------------------------------------------------
@@ -66,20 +159,26 @@ async function intentarEntrar() {
   el("btnEntrarDueno").disabled = true;
   el("btnEntrarDueno").textContent = "Entrando...";
 
+  let bloqueado = false;
   try {
-    const r = await llamar("duenoListarAcademias", { claveDueno: clave });
+    const { status, r } = await pedirToken(clave);
+    if (status === 429) {
+      bloqueado = true;
+      mostrarBloqueoLogin(r.reintentarEnSegundos);
+      return;
+    }
     if (!r.success) {
       el("mensajeErrorLogin").textContent = r.error || "Clave incorrecta.";
       return;
     }
-    claveDueno = clave;
-    localStorage.setItem("biometrico_clave_dueno", clave);
-    pintarAcademias(r.academias);
+    guardarSesion({ token: r.token, expiraEn: r.expiraEn });
+    localStorage.removeItem("biometrico_clave_dueno");
+    el("inputClaveDueno").value = "";
     mostrarPanel();
   } catch (e) {
     el("mensajeErrorLogin").textContent = "No se pudo conectar. Revisa tu conexión e inténtalo de nuevo.";
   } finally {
-    el("btnEntrarDueno").disabled = false;
+    el("btnEntrarDueno").disabled = bloqueado;
     el("btnEntrarDueno").textContent = "Entrar →";
   }
 }
@@ -87,13 +186,25 @@ async function intentarEntrar() {
 el("btnEntrarDueno").addEventListener("click", intentarEntrar);
 el("inputClaveDueno").addEventListener("keydown", (e) => { if (e.key === "Enter") intentarEntrar(); });
 
-el("btnSalirDueno").addEventListener("click", () => {
-  claveDueno = "";
+function volverALogin(mensaje) {
+  sesion = null;
+  localStorage.removeItem("biometrico_sesion_dueno");
   localStorage.removeItem("biometrico_clave_dueno");
   detenerActualizacionAutomaticaDeAcademias();
+  el("modalEditarAcademia").hidden = true;
   el("pantallaPanel").hidden = true;
   el("pantallaLogin").hidden = false;
   el("inputClaveDueno").value = "";
+  el("mensajeErrorLogin").textContent = mensaje || "";
+}
+
+// Cerrar sesión: se avisa al servidor para que el token deje de servir
+// (si falla por red, igual se borra de este navegador).
+el("btnSalirDueno").addEventListener("click", async () => {
+  if (sesion?.token) {
+    try { await llamar("cerrarSesion", {}); } catch (e) { /* mejor esfuerzo */ }
+  }
+  volverALogin();
 });
 
 // ---------------------------------------------------------------
@@ -101,13 +212,12 @@ el("btnSalirDueno").addEventListener("click", () => {
 // ---------------------------------------------------------------
 async function cargarAcademias() {
   try {
-    const r = await llamar("duenoListarAcademias", { claveDueno });
+    const r = await llamar("duenoListarAcademias", {});
     if (!r.success) {
-      // La clave guardada ya no sirve — regresa al login.
-      detenerActualizacionAutomaticaDeAcademias();
-      el("pantallaPanel").hidden = true;
-      el("pantallaLogin").hidden = false;
-      el("mensajeErrorLogin").textContent = r.error || "Tu sesión ya no es válida, vuelve a entrar.";
+      // 401 ya mandó al login desde llamar(); cualquier otro error se
+      // muestra sin sacar a nadie de su sesión.
+      if (!sesion) return;
+      el("listaAcademias").innerHTML = `<p class="lista-vacia">${escaparHtml(r.error || "No se pudo cargar la lista.")}</p>`;
       return;
     }
     pintarAcademias(r.academias);
@@ -171,7 +281,7 @@ async function alternarActivo(academia) {
   if (!window.confirm(confirmacion)) return;
 
   try {
-    const r = await llamar("duenoActualizarAcademia", { claveDueno, academiaId: academia.id, activo: nuevoEstado });
+    const r = await llamar("duenoActualizarAcademia", { academiaId: academia.id, activo: nuevoEstado });
     if (!r.success) { alert(r.error || "No se pudo actualizar."); return; }
     cargarAcademias();
   } catch (e) {
@@ -211,7 +321,7 @@ async function cargarHistorialPagos(academiaId) {
   const cont = el("listaHistorialPagos");
   cont.innerHTML = '<p class="lista-vacia">Cargando historial...</p>';
   try {
-    const r = await llamar("duenoListarPagosAcademia", { claveDueno, academiaId });
+    const r = await llamar("duenoListarPagosAcademia", { academiaId });
     // Si mientras cargaba se cerró el modal o se abrió otra academia,
     // no pintar un historial que ya no corresponde a lo que se ve.
     if (academiaId !== academiaEditandoId) return;
@@ -242,7 +352,9 @@ function pintarHistorialPagos(pagos) {
       partes.push(`<a href="${escaparHtml(p.paggo_link)}" target="_blank" rel="noopener">Ver link de pago →</a>`);
     }
     if (p.comprobante_key) {
-      partes.push(`<a href="${API_URL}/foto?key=${encodeURIComponent(p.comprobante_key)}" target="_blank" rel="noopener">📎 Ver comprobante →</a>`);
+      // Respaldo sin firma si el Worker no manda comprobanteUrl — quitar en Fase 1c.
+      const urlComprobante = p.comprobanteUrl || `${API_URL}/foto?key=${encodeURIComponent(p.comprobante_key)}`;
+      partes.push(`<a href="${escaparHtml(urlComprobante)}" target="_blank" rel="noopener">📎 Ver comprobante →</a>`);
     }
     div.innerHTML = `
       <div class="info-principal">
@@ -267,7 +379,7 @@ async function cargarDispositivos(academiaId) {
   const cont = el("listaDispositivos");
   cont.innerHTML = '<p class="lista-vacia">Cargando dispositivos...</p>';
   try {
-    const r = await llamar("duenoListarDispositivos", { claveDueno, academiaId });
+    const r = await llamar("duenoListarDispositivos", { academiaId });
     if (academiaId !== academiaEditandoId) return;
     if (!r.success) {
       cont.innerHTML = `<p class="lista-vacia">${escaparHtml(r.error || "No se pudo cargar la lista de dispositivos.")}</p>`;
@@ -306,7 +418,7 @@ function pintarDispositivos(dispositivos, academiaId) {
     div.querySelector('[data-accion="liberar"]').addEventListener("click", async () => {
       if (!window.confirm(`¿Liberar este dispositivo? La tablet que lo tenía activado deja de "ocupar cupo" — si vuelve a iniciar sesión desde cero, contará como una tablet nueva.`)) return;
       try {
-        const r = await llamar("duenoLiberarDispositivo", { claveDueno, dispositivoId: d.id });
+        const r = await llamar("duenoLiberarDispositivo", { dispositivoId: d.id });
         if (!r.success) { alert(r.error || "No se pudo liberar."); return; }
         cargarDispositivos(academiaId);
         cargarAcademias();
@@ -322,7 +434,7 @@ el("btnMarcarPagadoManual").addEventListener("click", async () => {
   if (!window.confirm(`¿Marcar a "${academiaEditandoNombre}" como al día, aunque no haya llegado el pago por Paggo (por ejemplo, si te pagó en efectivo o transferencia)?`)) return;
 
   try {
-    const r = await llamar("duenoActualizarAcademia", { claveDueno, academiaId: academiaEditandoId, pagoAlDia: true });
+    const r = await llamar("duenoActualizarAcademia", { academiaId: academiaEditandoId, pagoAlDia: true });
     if (!r.success) { alert(r.error || "No se pudo actualizar."); return; }
     el("textoEstadoPagoAcademia").textContent = "Este mes está al día.";
     cargarAcademias();
@@ -353,7 +465,6 @@ el("btnGuardarEditarAcademia").addEventListener("click", async () => {
   el("btnGuardarEditarAcademia").disabled = true;
   try {
     const r = await llamar("duenoActualizarAcademia", {
-      claveDueno,
       academiaId: academiaEditandoId,
       nombre,
       limite: nuevoLimite,
@@ -377,7 +488,7 @@ el("btnBorrarAcademia").addEventListener("click", async () => {
   if (!window.confirm(`¿Borrar por completo a "${academiaEditandoNombre}"? Se elimina para siempre junto con sus alumnos, su historial de asistencias, sus pagos y sus fotos — después SÍ vas a poder crear otro cliente con ese mismo nombre. Esto no se puede deshacer.`)) return;
 
   try {
-    const r = await llamar("duenoBorrarAcademia", { claveDueno, academiaId: academiaEditandoId });
+    const r = await llamar("duenoBorrarAcademia", { academiaId: academiaEditandoId });
     if (!r.success) { el("mensajeErrorEditarAcademia").textContent = r.error || "No se pudo borrar."; return; }
     el("modalEditarAcademia").hidden = true;
     cargarAcademias();
@@ -406,7 +517,7 @@ el("btnCrearAcademia").addEventListener("click", async () => {
 
   el("btnCrearAcademia").disabled = true;
   try {
-    const r = await llamar("duenoCrearAcademia", { claveDueno, nombre, clave, limite, limiteDispositivos, email, mensualidad, tipoCliente });
+    const r = await llamar("duenoCrearAcademia", { nombre, clave, limite, limiteDispositivos, email, mensualidad, tipoCliente });
     if (!r.success) { el("mensajeErrorCrear").textContent = r.error || "No se pudo crear."; return; }
     el("mensajeExitoCrear").textContent = `Cliente "${nombre}" creado. Avísales el nombre y la contraseña para que entren a su panel.`;
     el("inputNuevaAcademiaNombre").value = "";
@@ -424,11 +535,20 @@ el("btnCrearAcademia").addEventListener("click", async () => {
 });
 
 // ---------------------------------------------------------------
-// INICIO — si ya había una clave guardada, entra directo
+// INICIO — si ya había una sesión guardada, entra directo. Si era una
+// sesión vieja (con la clave guardada), se cambia por un token en
+// segundo plano, sin pedirle nada a Ana.
 // ---------------------------------------------------------------
-if (claveDueno) {
-  el("inputClaveDueno").value = claveDueno;
-  intentarEntrar();
+{
+  const guardada = cargarSesionGuardada();
+  if (sesionVencida(guardada)) {
+    volverALogin(MENSAJE_SESION_VENCIDA);
+  } else if (guardada) {
+    sesion = guardada;
+    mostrarPanel();
+    migrarSesionVieja();
+    setInterval(migrarSesionVieja, 5 * 60 * 1000);
+  }
 }
 
 // ---------------------------------------------------------------
