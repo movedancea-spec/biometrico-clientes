@@ -10,7 +10,7 @@ const API_URL = "https://biometrico-saas.movedancea.workers.dev";
 // nueva de los archivos — ver verificarActualizacion() al final de
 // este archivo. NO cambiar este valor a mano: lo actualiza el script
 // actualizar-versiones.mjs cada vez que algo cambia.
-const VERSION_APP = "6bff86ff635c";
+const VERSION_APP = "d3c2916638bb";
 
 const el = (id) => document.getElementById(id);
 
@@ -277,6 +277,7 @@ async function migrarSesionVieja() {
     sesion.token = r.token;
     sesion.expiraEn = r.expiraEn;
     sesion.tipoCliente = r.tipoCliente || sesion.tipoCliente || "academia";
+    sesion.codigoPublico = r.codigoPublico || sesion.codigoPublico || null;
     delete sesion.clave;
     guardarSesion(sesion);
   } catch (e) {
@@ -312,18 +313,50 @@ function mostrarPanel() {
   aplicarLogoEnHeader(sesion.logoKey);
   el("inputColorMarca").value = sesion.colorMarca || "#9c7b4f";
   el("inputEmailCuenta").value = sesion.email || "";
-  // El link ya trae el id de ESTA academia (?academia=...) para que a
-  // los papás el Portal de Alumnos les abra directo en su academia,
-  // sin tener que buscarla ni escribir el nombre.
-  el("linkPortalAlumnos").href = new URL(`portal.html?academia=${sesion.academiaId}`, location.href).href;
+  pintarLinkPortal();
+  cargarCodigoPublico();
   cargarAlumnas();
   ajustarInterfazSegunTipo();
   cargarMensualidad();
   iniciarActualizacionAutomatica();
 }
 
+// El link trae el código público de ESTA academia (?a=...) para que a
+// los papás el Portal de Alumnos les abra directo en su academia, sin
+// tener que buscarla ni escribir el nombre. Mientras no se conoce el
+// código (sesión guardada de antes), va el link viejo con el id, que
+// sigue funcionando.
+function linkPortal() {
+  const ruta = sesion.codigoPublico
+    ? `portal.html?a=${encodeURIComponent(sesion.codigoPublico)}`
+    : `portal.html?academia=${sesion.academiaId}`;
+  return new URL(ruta, location.href).href;
+}
+
+function pintarLinkPortal() {
+  const link = linkPortal();
+  el("linkPortalAlumnos").href = link;
+  el("inputLinkPortal").value = link;
+}
+
+// Sesiones guardadas antes de que academiaLogin devolviera el código.
+async function cargarCodigoPublico() {
+  if (sesion.codigoPublico) return;
+  try {
+    const r = await llamar("academiaConsultarCodigoPublico", {});
+    if (!r.success || !r.codigoPublico || !sesion) return;
+    sesion.codigoPublico = r.codigoPublico;
+    guardarSesion(sesion);
+    pintarLinkPortal();
+  } catch (e) {
+    // Se queda el link viejo; se reintenta la próxima vez que se abra el panel.
+  }
+}
+
+el("inputLinkPortal").addEventListener("focus", (e) => e.target.select());
+
 el("btnCopiarLinkPortal").addEventListener("click", async () => {
-  const link = el("linkPortalAlumnos").href;
+  const link = linkPortal();
   const mensaje = el("mensajeCopiadoLinkPortal");
   try {
     await navigator.clipboard.writeText(link);
@@ -404,6 +437,7 @@ async function intentarEntrar() {
       logoKey: r.logoKey || null,
       email: r.email || null,
       tipoCliente: r.tipoCliente || "academia",
+      codigoPublico: r.codigoPublico || null,
     });
     mostrarPanel();
   } catch (e) {

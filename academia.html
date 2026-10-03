@@ -70,7 +70,8 @@
 
   <div class="panel aviso-kiosko">
     <h2>👨‍👩‍👧‍👦 Portal de Alumnos <span id="etiquetaPortalPapas">(para los papás)</span></h2>
-    <p class="ayuda" style="margin-bottom:12px;" id="textoAyudaPortal">Compárteles este enlace a los papás (por WhatsApp, por ejemplo) — ya abre directo en TU cuenta, sin que tengan que buscarla ni escribir su nombre. Ahí eligen a su hijo y ponen la contraseña. Cada alumno tiene su propia contraseña del portal (la generas desde "Editar" en su tarjeta, más abajo) — esa es la que le compartes a la familia.</p>
+    <p class="ayuda" style="margin-bottom:12px;" id="textoAyudaPortal">Compárteles este enlace a los papás (por WhatsApp, por ejemplo) — ya abre directo en TU cuenta, sin que tengan que buscarla ni escribir su nombre. Ahí escriben el código de su hijo y su PIN del portal. Cada alumno tiene su propia contraseña del portal (la generas desde "Editar" en su tarjeta, más abajo) — esa es la que le compartes a la familia.</p>
+    <input type="text" id="inputLinkPortal" readonly aria-label="Enlace del portal para compartir" style="margin-bottom:8px;" />
     <div style="display:flex; gap:8px; flex-wrap:wrap;">
       <a class="btn secundario chico" id="linkPortalAlumnos" href="portal.html" target="_blank" rel="noopener">Abrir el Portal de <span id="etiquetaPortalTipo1">Alumnos</span> →</a>
       <button class="btn secundario chico" id="btnCopiarLinkPortal" type="button">📋 Copiar enlace para <span id="etiquetaPortalTipo2">los papás</span></button>
@@ -258,6 +259,6 @@
   </div>
 </div>
 
-<script src="academia.js?v=6bff86ff635c"></script>
+<script src="academia.js?v=d3c2916638bb"></script>
 </body>
 </html>

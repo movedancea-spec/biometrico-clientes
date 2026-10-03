@@ -10,7 +10,7 @@ const API_URL = "https://biometrico-saas.movedancea.workers.dev";
 // nueva de los archivos — ver verificarActualizacion() al final de
 // este archivo. NO cambiar este valor a mano: lo actualiza el script
 // actualizar-versiones.mjs cada vez que algo cambia.
-const VERSION_APP = "6bff86ff635c";
+const VERSION_APP = "d3c2916638bb";
 
 const el = (id) => document.getElementById(id);
 
@@ -20,9 +20,28 @@ const el = (id) => document.getElementById(id);
 // sesión. La contraseña/PIN ya NO se guarda: "clave" solo existe en
 // alumnos agregados antes de los tokens, mientras se migran (ver
 // migrarSesionesViejas).
-let alumnasGuardadas = [];   // [{alumnaId, token, expiraEn, nombre, codigo, fotoKey, fotoUrl, fotoUrlEn, clasesPorMes, academiaId, academiaNombre, colorMarca, logoKey, tipoCliente}]
+let alumnasGuardadas = [];   // [{alumnaId, token, expiraEn, nombre, codigo, fotoKey, fotoUrl, fotoUrlEn, clasesPorMes, academiaId, codigoAcademia, academiaNombre, colorMarca, logoKey, tipoCliente}]
 let alumnaActivaId = null;   // cuál de las de arriba se está viendo ahora
-let academiaIdLogin = null;  // academia de la pantalla de login (viene del link ?academia=ID o de un hermano)
+let academiaLogin = null;    // academia de la pantalla de login: { codigo } (link ?a=...) o { id } (link viejo ?academia=ID); viene del link o de un hermano
+
+// Referencia a la academia de un alumno guardado: por su código público
+// si ya lo tiene (alumnos que entraron con la parte 2 de la Fase 1c) o
+// por el id (los guardados antes).
+function academiaDeEntrada(entrada) {
+  if (entrada?.codigoAcademia) return { codigo: entrada.codigoAcademia };
+  if (entrada?.academiaId) return { id: Number(entrada.academiaId) };
+  return null;
+}
+
+function esDeLaAcademia(entrada, academia) {
+  if (!entrada || !academia) return false;
+  return academia.codigo ? entrada.codigoAcademia === academia.codigo : Number(entrada.academiaId) === academia.id;
+}
+
+// Cómo se manda la academia al Worker: el código si se tiene, nunca los dos.
+function academiaParaWorker(academia) {
+  return academia.codigo ? { codigoAcademia: academia.codigo } : { academiaId: academia.id };
+}
 
 function alumnaActiva() {
   return alumnaActivaId ? alumnasGuardadas.find((a) => a.alumnaId === alumnaActivaId) : null;
@@ -265,8 +284,9 @@ function guardarAlumnasConNotificacionesActivas(set) {
 // PANTALLAS DE ENTRADA
 // ---------------------------------------------------------------
 // Se entra con el código del alumno + su PIN del portal, dentro de la
-// academia que viene en el link "portal.html?academia=ID" (el que cada
-// academia comparte con sus papás desde su panel). Ya no hay lista de
+// academia que viene en el link "portal.html?a=CODIGO" (el que cada
+// academia comparte con sus papás desde su panel; los links viejos
+// "portal.html?academia=ID" siguen sirviendo). Ya no hay lista de
 // nombres ni buscador de academias: sin ese link no se sabe a qué
 // academia pertenece el código, así que se pide abrir el link.
 const MENSAJE_SESION_VENCIDA = "La sesión terminó. Vuelve a entrar con el código y el PIN.";
@@ -285,19 +305,20 @@ function mostrarPantallaSinEnlace() {
   el("pantallaSinEnlace").hidden = false;
 }
 
-function mostrarLogin(academiaId, mensaje) {
-  if (!academiaId) { mostrarPantallaSinEnlace(); return; }
-  academiaIdLogin = Number(academiaId);
+// academia = { codigo } o { id } (ver academiaDeEntrada), o null.
+function mostrarLogin(academia, mensaje) {
+  if (!academia) { mostrarPantallaSinEnlace(); return; }
+  academiaLogin = academia;
 
   // Si en este dispositivo ya hay un hermano de esa misma academia, la
   // pantalla sale de una vez con su marca; luego se pide la marca de la
   // academia del link (portalMarcaAcademia, pública) por si cambió o no
   // hay hermano.
-  const hermano = alumnasGuardadas.find((a) => Number(a.academiaId) === academiaIdLogin);
+  const hermano = alumnasGuardadas.find((a) => esDeLaAcademia(a, academia));
   pintarMarcaLogin(hermano
     ? { nombre: hermano.academiaNombre, colorMarca: hermano.colorMarca, logoKey: hermano.logoKey, tipoCliente: hermano.tipoCliente }
     : null);
-  cargarMarcaLogin(academiaIdLogin);
+  cargarMarcaLogin(academia);
 
   el("inputPortalCodigo").value = "";
   el("inputPortalClave").value = "";
@@ -325,16 +346,16 @@ function pintarMarcaLogin(marca) {
 
 // En silencio: si falla (sin internet, academia desactivada...), se
 // queda la marca que ya se pintó.
-async function cargarMarcaLogin(academiaId) {
+async function cargarMarcaLogin(academia) {
   try {
     const resp = await fetch(API_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ accion: "portalMarcaAcademia", academiaId }),
+      body: JSON.stringify({ accion: "portalMarcaAcademia", ...academiaParaWorker(academia) }),
     });
     const r = await resp.json();
     // Puede que mientras tanto se haya cambiado de pantalla o de academia.
-    if (!r.success || academiaIdLogin !== academiaId || el("pantallaLoginPortal").hidden) return;
+    if (!r.success || academiaLogin !== academia || el("pantallaLoginPortal").hidden) return;
     pintarMarcaLogin(r);
   } catch (e) {
     // Se queda con lo que ya había.
@@ -348,7 +369,8 @@ function entradaDesdeLogin(r) {
     alumnaId: r.alumnaId, token: r.token, expiraEn: r.expiraEn,
     nombre: r.nombre, codigo: r.codigo, fotoKey: r.fotoKey,
     fotoUrl: r.fotoUrl || null, fotoUrlEn: Date.now(),
-    clasesPorMes: r.clasesPorMes, academiaId: r.academiaId, academiaNombre: r.academiaNombre,
+    clasesPorMes: r.clasesPorMes, academiaId: r.academiaId, codigoAcademia: r.codigoAcademia || null,
+    academiaNombre: r.academiaNombre,
     colorMarca: r.colorMarca, logoKey: r.logoKey,
     tipoCliente: r.tipoCliente || "academia",
   };
@@ -367,7 +389,7 @@ async function entrarPortal() {
     const resp = await fetch(API_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ accion: "portalLoginCodigo", academiaId: academiaIdLogin, codigo, clave }),
+      body: JSON.stringify({ accion: "portalLoginCodigo", ...academiaParaWorker(academiaLogin), codigo, clave }),
     });
     const r = await resp.json();
 
@@ -428,7 +450,7 @@ el("btnEnviarOlvidePin").addEventListener("click", async () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         accion: "portalSolicitarRecuperacion",
-        academiaId: academiaIdLogin,
+        ...academiaParaWorker(academiaLogin),
         codigo,
         email,
         origenPortal: location.origin + location.pathname,
@@ -454,7 +476,7 @@ el("btnAgregarOtraAlumna").addEventListener("click", () => {
   // ya está usando este dispositivo — se abre directo el login de esa
   // academia. Si es de otra academia, tienen que abrir el link de esa.
   const referencia = alumnaActiva() || alumnasGuardadas[0];
-  mostrarLogin(referencia?.academiaId);
+  mostrarLogin(academiaDeEntrada(referencia));
 });
 
 // ---------------------------------------------------------------
@@ -465,7 +487,7 @@ el("btnAgregarOtraAlumna").addEventListener("click", () => {
 function sesionTerminada(entrada) {
   if (!alumnasGuardadas.some((a) => a.alumnaId === entrada.alumnaId)) return; // ya se atendió
   quitarDeLaLista(entrada.alumnaId);
-  mostrarLogin(entrada.academiaId, `La sesión de ${entrada.nombre} terminó. Vuelve a entrar con su código y su PIN.`);
+  mostrarLogin(academiaDeEntrada(entrada), `La sesión de ${entrada.nombre} terminó. Vuelve a entrar con su código y su PIN.`);
 }
 
 // ---------------------------------------------------------------
@@ -945,7 +967,7 @@ async function quitarAlumnaDelDispositivo(alumnaId) {
   quitarDeLaLista(alumnaId);
 
   if (alumnasGuardadas.length) mostrarPanel();
-  else mostrarLogin(entrada.academiaId);
+  else mostrarLogin(academiaDeEntrada(entrada));
 }
 
 // Cerrar sesión: se cierran TODOS los alumnos guardados en este
@@ -957,13 +979,13 @@ el("btnCerrarSesionPortal").addEventListener("click", async () => {
   if (!window.confirm(texto)) return;
 
   el("btnCerrarSesionPortal").disabled = true;
-  const academiaId = (alumnaActiva() || alumnasGuardadas[0])?.academiaId;
+  const academia = academiaDeEntrada(alumnaActiva() || alumnasGuardadas[0]);
   for (const entrada of [...alumnasGuardadas]) await cerrarSesionDeAlumna(entrada);
   alumnasGuardadas = [];
   alumnaActivaId = null;
   guardarAlumnasEnDisco();
   el("btnCerrarSesionPortal").disabled = false;
-  mostrarLogin(academiaId);
+  mostrarLogin(academia);
 });
 
 // ---------------------------------------------------------------
@@ -983,20 +1005,23 @@ el("btnCerrarSesionPortal").addEventListener("click", async () => {
   const vencidas = alumnasGuardadas.filter((a) => a.expiraEn && new Date(a.expiraEn).getTime() <= Date.now());
   vencidas.forEach((a) => quitarDeLaLista(a.alumnaId));
 
-  // "?academia=ID" es el link que cada academia comparte con sus papás
-  // desde su panel — lleva directo al login de ESA academia. Si en este
-  // dispositivo ya hay un alumno guardado de esa misma academia, se
-  // muestra el panel normal (no tiene caso volver a pedir el PIN).
-  const academiaDelLink = Number(params.get("academia")) || null;
+  // "?a=CODIGO" es el link que cada academia comparte con sus papás
+  // desde su panel — lleva directo al login de ESA academia. Los links
+  // viejos "?academia=ID" siguen funcionando. Si en este dispositivo ya
+  // hay un alumno guardado de esa misma academia, se muestra el panel
+  // normal (no tiene caso volver a pedir el PIN).
+  const codigoDelLink = (params.get("a") || "").trim();
+  const idDelLink = Number(params.get("academia")) || null;
+  const academiaDelLink = codigoDelLink ? { codigo: codigoDelLink } : idDelLink ? { id: idDelLink } : null;
   const yaTieneAlumnaDeEsaAcademia = academiaDelLink
-    && alumnasGuardadas.some((a) => Number(a.academiaId) === academiaDelLink);
+    && alumnasGuardadas.some((a) => esDeLaAcademia(a, academiaDelLink));
 
   if (academiaDelLink && !yaTieneAlumnaDeEsaAcademia) {
     mostrarLogin(academiaDelLink);
   } else if (alumnasGuardadas.length) {
     mostrarPanel();
   } else if (vencidas.length) {
-    mostrarLogin(vencidas[0].academiaId, MENSAJE_SESION_VENCIDA);
+    mostrarLogin(academiaDeEntrada(vencidas[0]), MENSAJE_SESION_VENCIDA);
   } else {
     mostrarPantallaSinEnlace();
   }
