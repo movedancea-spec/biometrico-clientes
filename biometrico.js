@@ -14,7 +14,7 @@ const API_URL = "https://biometrico-saas.movedancea.workers.dev";
 // nueva de los archivos — ver verificarActualizacion() al final de
 // este archivo. NO cambiar este valor a mano: lo actualiza el script
 // actualizar-versiones.mjs cada vez que algo cambia.
-const VERSION_APP = "0beb8f2aa7b2";
+const VERSION_APP = "309879fc8ec2";
 
 const el = (id) => document.getElementById(id);
 
@@ -494,11 +494,22 @@ function mostrarBienvenida(r) {
     ? `<img class="foto-bienvenida" src="${escaparHtml(fotoAlumna(r.alumna))}" alt="" />`
     : `<div class="foto-bienvenida vacia">💃</div>`;
 
+  // Marca repetida (módulo de asistencias): se guardó, pero no sumó.
+  let detalle;
+  if (r.marcaRepetida) {
+    const hace = r.minutosDesdeAnterior > 0
+      ? `hace ${r.minutosDesdeAnterior} ${r.minutosDesdeAnterior === 1 ? "minuto" : "minutos"}`
+      : "hace un momento";
+    detalle = `Ya registraste tu asistencia ${hace} 🙂 — llevas ${r.clasesEsteMes} / ${r.clasesPorMes} clases este mes.`;
+  } else {
+    detalle = sesion?.tipoCliente === "empresa" ? "Asistencia marcada." : `Asistencia marcada — ${r.clasesEsteMes} / ${r.clasesPorMes} clases este mes.`;
+  }
+
   el("contenidoResultado").innerHTML = `
     <div class="kiosko-bienvenida">
       ${foto}
       <div class="mensaje-bienvenida">¡Hola, ${escaparHtml(r.alumna.nombre)}!</div>
-      <div class="detalle-bienvenida">${sesion?.tipoCliente === "empresa" ? "Asistencia marcada." : `Asistencia marcada — ${r.clasesEsteMes} / ${r.clasesPorMes} clases este mes.`}</div>
+      <div class="detalle-bienvenida">${detalle}</div>
     </div>
   `;
 

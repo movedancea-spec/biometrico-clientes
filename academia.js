@@ -10,7 +10,7 @@ const API_URL = "https://biometrico-saas.movedancea.workers.dev";
 // nueva de los archivos — ver verificarActualizacion() al final de
 // este archivo. NO cambiar este valor a mano: lo actualiza el script
 // actualizar-versiones.mjs cada vez que algo cambia.
-const VERSION_APP = "0beb8f2aa7b2";
+const VERSION_APP = "309879fc8ec2";
 
 const el = (id) => document.getElementById(id);
 
@@ -997,7 +997,7 @@ async function cargarAsistenciasAlumna() {
         ${foto}
         <div class="info-principal">
           <div class="nombre-item">${escaparHtml(formatearFechaHora(a.fecha))}</div>
-          <div class="detalle-item">${a.metodo === "Huella" ? "👆 Huella" : "🔢 Código"}</div>
+          <div class="detalle-item">${a.metodo === "Huella" ? "👆 Huella" : "🔢 Código"}${a.cuenta === false ? " · ↩️ repetida, no cuenta" : ""}</div>
         </div>
         <div class="acciones-item">
           <button class="btn peligro chico" data-id="${a.id}">🗑️Borrar</button>

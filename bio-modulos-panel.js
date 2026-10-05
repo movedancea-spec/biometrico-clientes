@@ -10,7 +10,10 @@
 // guardarFicha() desde el modal de editar alumno.
 // ===============================================================
 const modulosPanel = (() => {
+  const MINUTOS_MIN = 5;
+  const MINUTOS_MAX = 120;
   let activos = [];
+  let minutosMarcaDoble = 30;   // minutos para que una marca repetida no cuente
   let clases = [];              // [{ id, nombre, horario, activa, inscritos }]
   let avisos = [];              // [{ id, tipo, titulo, texto, fijado, mes, anio, creadoEn, vigente }]
   let claseEditandoId = null;
@@ -39,6 +42,7 @@ const modulosPanel = (() => {
   // ---------------------------------------------------------------
   function reiniciar() {
     activos = []; clases = []; avisos = [];
+    minutosMarcaDoble = 30;
     claseEditandoId = null; avisoEditandoId = null;
     fichaAlumnaId = null; fichaClasesOriginales = null;
     el("contenedorModulos").innerHTML = "";
@@ -53,6 +57,7 @@ const modulosPanel = (() => {
       const r = await llamar("academiaConsultarModulos", {});
       if (!r.success) return;
       activos = r.modulos || [];
+      minutosMarcaDoble = r.minutosMarcaDoble || 30;
     } catch (e) {
       return; // sin conexión: el panel sigue sin módulos
     }
@@ -65,6 +70,7 @@ const modulosPanel = (() => {
     if (tiene("clases_asistencia")) {
       el("etiquetaEditarClases").textContent = "Clases esperadas por mes (el cambio vale desde este mes)";
       el("btnCrearClase").addEventListener("click", crearClase);
+      el("btnGuardarMinutosMarcaDoble").addEventListener("click", guardarMinutosMarcaDoble);
       cargarClases();
     }
     if (tiene("avisos")) {
@@ -80,7 +86,7 @@ const modulosPanel = (() => {
     return `
       <div class="panel" id="panelClases">
         <h2>📚 Clases</h2>
-        <p class="ayuda">Crea las clases de tu academia. Para inscribir a un alumno, ábrelo con "Editar" en su tarjeta (más abajo). En "clases este mes" se cuenta como máximo una asistencia por día.</p>
+        <p class="ayuda">Crea las clases de tu academia. Para inscribir a un alumno, ábrelo con "Editar" en su tarjeta (más abajo). En "clases este mes" cuenta cada marca, salvo las repetidas (ver abajo).</p>
         <div class="fila-formulario">
           <div>
             <label>Nombre de la clase</label>
@@ -96,8 +102,41 @@ const modulosPanel = (() => {
         <div class="lista-tarjetas" id="listaClases" style="margin-top:12px;">
           <p class="lista-vacia">Cargando...</p>
         </div>
+        <div class="campo" style="margin-top:16px;">
+          <label>Marcas repetidas</label>
+          <p class="ayuda" style="margin:2px 0 8px;">Si alguien marca otra vez a menos de estos minutos de su marca anterior, se guarda pero no suma (por ejemplo, si marcó dos veces por error). De ${MINUTOS_MIN} a ${MINUTOS_MAX} minutos.</p>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <input type="number" id="inputMinutosMarcaDoble" min="${MINUTOS_MIN}" max="${MINUTOS_MAX}" step="1" value="${minutosMarcaDoble}" style="max-width:110px; margin:0;" aria-label="Minutos" />
+            <span>minutos</span>
+            <button class="btn secundario chico" id="btnGuardarMinutosMarcaDoble" type="button" style="width:auto;">Guardar</button>
+          </div>
+          <p class="mensaje-error" id="mensajeErrorMinutos"></p>
+          <p class="mensaje-exito" id="mensajeExitoMinutos"></p>
+        </div>
       </div>
     `;
+  }
+
+  async function guardarMinutosMarcaDoble() {
+    const minutos = Number(el("inputMinutosMarcaDoble").value);
+    el("mensajeErrorMinutos").textContent = "";
+    el("mensajeExitoMinutos").textContent = "";
+    if (!Number.isInteger(minutos) || minutos < MINUTOS_MIN || minutos > MINUTOS_MAX) {
+      el("mensajeErrorMinutos").textContent = `Escribe un número entero entre ${MINUTOS_MIN} y ${MINUTOS_MAX}.`;
+      return;
+    }
+    el("btnGuardarMinutosMarcaDoble").disabled = true;
+    try {
+      const r = await llamar("academiaActualizarMinutosMarcaDoble", { minutos });
+      if (!r.success) { el("mensajeErrorMinutos").textContent = r.error || "No se pudo guardar."; return; }
+      minutosMarcaDoble = r.minutosMarcaDoble;
+      el("mensajeExitoMinutos").textContent = `Guardado: ${minutosMarcaDoble} minutos. Los conteos ya se recalcularon.`;
+      cargarAlumnas(); // "clases este mes" con la regla nueva
+    } catch (e) {
+      el("mensajeErrorMinutos").textContent = "No se pudo conectar. Inténtalo de nuevo.";
+    } finally {
+      el("btnGuardarMinutosMarcaDoble").disabled = false;
+    }
   }
 
   async function cargarClases() {

@@ -10,7 +10,7 @@ const API_URL = "https://biometrico-saas.movedancea.workers.dev";
 // nueva de los archivos — ver verificarActualizacion() al final de
 // este archivo. NO cambiar este valor a mano: lo actualiza el script
 // actualizar-versiones.mjs cada vez que algo cambia.
-const VERSION_APP = "0beb8f2aa7b2";
+const VERSION_APP = "309879fc8ec2";
 
 const el = (id) => document.getElementById(id);
 
@@ -686,7 +686,7 @@ function tarjetaEntrada(entrada) {
     <div class="tarjeta-item">
       <div class="info-principal">
         <div class="nombre-item">${escaparHtml(formatearFechaHora(entrada.fecha))}</div>
-        <div class="detalle-item">${entrada.metodo === "Huella" ? "👆 Huella" : "🔢 Código"}</div>
+        <div class="detalle-item">${entrada.metodo === "Huella" ? "👆 Huella" : "🔢 Código"}${entrada.cuenta === false ? " · ↩️ repetida, no cuenta" : ""}</div>
       </div>
     </div>
   `;
