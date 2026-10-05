@@ -24,6 +24,7 @@ const modulosPanel = (() => {
   let avisoEditandoId = null;
   let fichaAlumnaId = null;     // alumno cuyas clases se ven en el modal
   let fichaClasesOriginales = null; // ids al abrir la ficha (null = no se cargaron)
+  let fichaMensualidad = null;      // { alumnaId, centavos, tieneMonto } al abrir la ficha
 
   const tiene = (modulo) => activos.includes(modulo);
 
@@ -52,6 +53,9 @@ const modulosPanel = (() => {
     el("contenedorModulos").innerHTML = "";
     el("bloqueClasesAlumna").hidden = true;
     el("bloqueClasesAlumna").innerHTML = "";
+    el("bloqueMensualidadAlumna").hidden = true;
+    el("bloqueMensualidadAlumna").innerHTML = "";
+    fichaMensualidad = null;
     el("etiquetaEditarClases").textContent = "Clases al mes";
     // Fase 3
     moneda = { codigo: "GTQ", simbolo: "Q" };
@@ -318,6 +322,7 @@ const modulosPanel = (() => {
   // Clases inscritas en la ficha del alumno (modal de editar)
   // ---------------------------------------------------------------
   async function abrirFicha(alumna) {
+    abrirFichaMensualidad(alumna);
     const bloque = el("bloqueClasesAlumna");
     fichaAlumnaId = alumna.id;
     fichaClasesOriginales = null;
@@ -366,7 +371,50 @@ const modulosPanel = (() => {
 
   // Devuelve un mensaje de error, o null si se guardó (o no había nada
   // que guardar).
+  // ---- Mensualidad en la ficha (módulo mensualidades) ----
+  // Si el alumno nunca tuvo mensualidad, se elige desde qué mes aplica
+  // (del mes actual hacia atrás, sin pasar de su mes de alta).
+  function abrirFichaMensualidad(alumna) {
+    const bloque = el("bloqueMensualidadAlumna");
+    fichaMensualidad = null;
+    if (!tiene("mensualidades")) { bloque.hidden = true; bloque.innerHTML = ""; return; }
+    const tieneMonto = !!alumna.tieneMontoMensualidad;
+    fichaMensualidad = { alumnaId: alumna.id, centavos: alumna.mensualidadCentavos ?? null, tieneMonto };
+    const meses = [];
+    for (let mes = bioComun.mesActual(); mes >= (alumna.mesAlta || mes) && meses.length < 120;) {
+      meses.push(mes);
+      const [a, n] = mes.split("-").map(Number);
+      mes = new Date(Date.UTC(a, n - 2, 1)).toISOString().slice(0, 7);
+    }
+    bloque.innerHTML = `
+      <label>💳 Mensualidad</label>
+      <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+        <input type="text" id="inputFichaMensualidad" inputmode="decimal" placeholder="0.00" value="${fichaMensualidad.centavos ? bioComun.montoParaInput(fichaMensualidad.centavos) : ""}" style="max-width:140px; margin:0;" />
+        ${tieneMonto ? "" : `<select id="selectFichaDesde" aria-label="Aplicar desde" style="max-width:220px; margin:0;">${meses.map((mes, i) => `<option value="${mes}"${i === 0 ? " selected" : ""}>Desde ${escaparHtml(bioComun.nombreMes(mes))}</option>`).join("")}</select>`}
+      </div>
+      <p class="ayuda" style="margin:4px 0 0;">${tieneMonto ? "Un cambio vale desde este mes." : "Todavía no tiene mensualidad: elige desde qué mes aplica."}</p>
+    `;
+    bloque.hidden = false;
+  }
+
+  async function guardarFichaMensualidad(alumnaId) {
+    if (!fichaMensualidad || fichaMensualidad.alumnaId !== alumnaId) return null;
+    const texto = el("inputFichaMensualidad").value.trim();
+    const centavos = texto ? bioComun.leerMonto(texto) : null;
+    if (texto && centavos === null) return "La mensualidad no es válida.";
+    if (centavos === fichaMensualidad.centavos || (!texto && !fichaMensualidad.centavos)) return null;
+    const desde = el("selectFichaDesde");
+    try {
+      const r = await llamar("academiaMontoMensualidadAlumno", bioComun.conResponsable({ alumnaId, montoCentavos: centavos, desde: desde ? desde.value : undefined }));
+      return r.success ? null : r.error || "No se pudo guardar la mensualidad.";
+    } catch (e) {
+      return "No se pudo guardar la mensualidad. Revisa tu conexión.";
+    }
+  }
+
   async function guardarFicha(alumnaId) {
+    const errorMensualidad = await guardarFichaMensualidad(alumnaId);
+    if (errorMensualidad) return errorMensualidad;
     if (!tiene("clases_asistencia") || fichaAlumnaId !== alumnaId || !fichaClasesOriginales) return null;
     const elegidas = [...document.querySelectorAll("[data-clase-ficha]")]
       .filter((c) => c.checked).map((c) => Number(c.dataset.claseFicha));

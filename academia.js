@@ -10,7 +10,7 @@ const API_URL = "https://biometrico-saas.movedancea.workers.dev";
 // nueva de los archivos — ver verificarActualizacion() al final de
 // este archivo. NO cambiar este valor a mano: lo actualiza el script
 // actualizar-versiones.mjs cada vez que algo cambia.
-const VERSION_APP = "56366d5c8e2d";
+const VERSION_APP = "29d269f15c18";
 
 const el = (id) => document.getElementById(id);
 
@@ -813,10 +813,19 @@ el("btnCrearAlumna").addEventListener("click", async () => {
 
   if (!nombre) { el("mensajeErrorCrear").textContent = "Escribe el nombre del alumno."; return; }
 
+  // Módulo mensualidades: el campo solo se ve si está activo. Vacío = el
+  // Worker usa la mensualidad sugerida de la academia.
+  const extraMensualidad = {};
+  if (!el("campoMensualidadNueva").hidden && el("inputNuevaAlumnaMensualidad").value.trim()) {
+    const centavos = bioComun.leerMonto(el("inputNuevaAlumnaMensualidad").value);
+    if (centavos === null) { el("mensajeErrorCrear").textContent = "Escribe una mensualidad válida (por ejemplo 300 o 300.50)."; return; }
+    extraMensualidad.mensualidadCentavos = centavos;
+  }
+
   el("btnCrearAlumna").disabled = true;
   try {
     const fotoBase64 = await redimensionarImagen(archivo);
-    const r = await llamar("academiaCrearAlumna", esEmpresaCrear ? { nombre, horaEntradaEsperada, horaSalidaEsperada, fotoBase64 } : { nombre, clasesPorMes, fotoBase64 });
+    const r = await llamar("academiaCrearAlumna", esEmpresaCrear ? { nombre, horaEntradaEsperada, horaSalidaEsperada, fotoBase64 } : { nombre, clasesPorMes, fotoBase64, ...extraMensualidad });
     if (!r.success) {
       el("mensajeErrorCrear").textContent = r.error || "No se pudo agregar.";
       return;
@@ -908,7 +917,7 @@ el("btnGuardarEditar").addEventListener("click", async () => {
     if (!r.success) { el("mensajeErrorEditar").textContent = r.error || "No se pudo guardar."; return; }
     const errorClases = await modulosPanel.guardarFicha(alumnaEditandoId);
     if (errorClases) {
-      el("mensajeErrorEditar").textContent = "⚠️ Los demás cambios se guardaron, pero las clases no: " + errorClases;
+      el("mensajeErrorEditar").textContent = "⚠️ Los demás cambios se guardaron, pero hubo un problema: " + errorClases;
       cargarAlumnas();
       return;
     }
