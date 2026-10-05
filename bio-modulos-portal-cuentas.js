@@ -10,13 +10,23 @@ const modulosPortalCuentas = (() => {
 
   function limpiar() {
     ["panelShowPortal", "panelTrajesPortal", "panelMensualidadesPortal"].forEach((id) => { el(id).hidden = true; });
+    modulosPortalPagos.limpiar();
   }
 
-  function pintar(modulos, entrada) {
+  // Con el módulo pagos, primero se pide su configuración para saber si
+  // se pone el botón "Pagar" junto a lo pendiente.
+  async function pintar(modulos, entrada) {
     limpiar();
     if (modulos.includes("show")) cargarShow(entrada);
-    if (modulos.includes("trajes")) cargarTrajes(entrada);
-    if (modulos.includes("mensualidades")) cargarMensualidades(entrada);
+    const recargar = () => pintar(modulos, entrada);
+    if (modulos.includes("pagos")) {
+      await modulosPortalPagos.cargarConfig(entrada);
+      if (!sigueEnPantalla(entrada)) return;
+      modulosPortalPagos.verificarAlVolver(entrada, recargar);
+      modulosPortalPagos.cargarMisPagos(entrada);
+    }
+    if (modulos.includes("trajes")) cargarTrajes(entrada, recargar);
+    if (modulos.includes("mensualidades")) cargarMensualidades(entrada, recargar);
   }
 
   const sigueEnPantalla = (entrada) => alumnaActivaId === entrada.alumnaId;
@@ -59,7 +69,7 @@ const modulosPortalCuentas = (() => {
   }
 
   // ---- trajes ----
-  async function cargarTrajes(entrada) {
+  async function cargarTrajes(entrada, recargar) {
     try {
       const r = await llamar("portalTrajes", {}, entrada);
       if (!r.success || !sigueEnPantalla(entrada)) return;
@@ -72,16 +82,18 @@ const modulosPortalCuentas = (() => {
               <div class="info-principal">
                 <div class="nombre-item">${m.tipo === "cargo" ? `➕ ${c.escapar(m.concepto)}` : `➖ Abono (${c.escapar(c.FORMAS_PAGO[m.formaPago] || m.formaPago || "")})`} — ${c.dinero(m.montoCentavos, moneda)}</div>
                 <div class="detalle-item">${c.escapar(c.fecha(m.fecha))}${m.nota ? ` · ${c.escapar(m.nota)}` : ""}</div>
+                ${m.tipo === "cargo" ? modulosPortalPagos.boton(m.referencia, m.faltaCentavos, moneda) : ""}
               </div>
             </div>`).join("") || '<p class="lista-vacia">Sin movimientos.</p>'}
         </div>
       `;
+      modulosPortalPagos.enlazar(el("contenidoTrajesPortal"), entrada, moneda, recargar);
       el("panelTrajesPortal").hidden = false;
     } catch (e) { /* sin conexión: se queda escondido */ }
   }
 
   // ---- mensualidades ----
-  async function cargarMensualidades(entrada) {
+  async function cargarMensualidades(entrada, recargar) {
     try {
       const r = await llamar("portalMensualidades", {}, entrada);
       if (!r.success || !sigueEnPantalla(entrada)) return;
@@ -103,10 +115,12 @@ const modulosPortalCuentas = (() => {
                 <div class="nombre-item">${c.escapar(c.nombreMes(m.mes))} ${c.etiquetaEstadoMes(m.estado)}</div>
                 <div class="detalle-item">${detalleMes(m)}</div>
                 ${m.pagos.length ? `<div class="detalle-item">${m.pagos.map((p) => `${c.dinero(p.montoCentavos, moneda)} el ${c.escapar(c.fecha(p.fecha))}`).join(" · ")}</div>` : ""}
+                ${m.mes <= c.mesActual() ? modulosPortalPagos.boton(m.referencia, m.faltaCentavos, moneda) : ""}
               </div>
             </div>`).join("") || '<p class="lista-vacia">Sin meses.</p>'}
         </div>
       `;
+      modulosPortalPagos.enlazar(el("contenidoMensualidadesPortal"), entrada, moneda, recargar);
       el("panelMensualidadesPortal").hidden = false;
     } catch (e) { /* sin conexión: se queda escondido */ }
   }

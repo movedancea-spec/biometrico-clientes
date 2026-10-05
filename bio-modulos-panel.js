@@ -63,6 +63,7 @@ const modulosPanel = (() => {
     modulosShow.reiniciar();
     modulosTrajes.reiniciar();
     modulosMensualidades.reiniciar();
+    modulosPagos.reiniciar();
     bioComun.cerrarModal();
   }
 
@@ -79,7 +80,7 @@ const modulosPanel = (() => {
       return; // sin conexión: el panel sigue sin módulos
     }
 
-    const conDinero = tiene("trajes") || tiene("mensualidades");
+    const conDinero = tiene("trajes") || tiene("mensualidades") || tiene("pagos");
     let html = "";
     if (tiene("clases_asistencia")) html += htmlPanelClases();
     if (tiene("avisos")) html += htmlPanelAvisos();
@@ -87,6 +88,7 @@ const modulosPanel = (() => {
     if (tiene("show")) html += modulosShow.html();
     if (tiene("trajes")) html += modulosTrajes.html();
     if (tiene("mensualidades")) html += modulosMensualidades.html();
+    if (tiene("pagos")) html += modulosPagos.html();
     el("contenedorModulos").innerHTML = html;
 
     // Fase 3: responsable, moneda, show, trajes y mensualidades.
@@ -95,6 +97,7 @@ const modulosPanel = (() => {
     if (tiene("show")) modulosShow.iniciar();
     if (tiene("trajes")) modulosTrajes.iniciar({ ...contexto });
     if (tiene("mensualidades")) modulosMensualidades.iniciar({ ...contexto });
+    if (tiene("pagos")) modulosPagos.iniciar();
 
     if (tiene("clases_asistencia")) {
       el("etiquetaEditarClases").textContent = "Clases esperadas por mes (el cambio vale desde este mes)";
@@ -152,6 +155,7 @@ const modulosPanel = (() => {
       el("mensajeExitoRegistros").textContent = "Moneda guardada.";
       if (tiene("trajes")) modulosTrajes.cambiarMoneda(moneda);
       if (tiene("mensualidades")) modulosMensualidades.cambiarMoneda(moneda);
+      if (tiene("pagos")) modulosPagos.cambiarMoneda(moneda);
     } catch (err) {
       el("mensajeErrorRegistros").textContent = "No se pudo conectar. Inténtalo de nuevo.";
       e.target.value = moneda.codigo;
