@@ -1,6 +1,8 @@
 // ===============================================================
-// Módulos de academia (Fase 2) en el panel: clases (con inscripción
-// desde la ficha del alumno) y avisos. Solo aparecen si el dueño activó
+// Módulos de academia en el panel: clases (con inscripción desde la
+// ficha del alumno) y avisos (Fase 2); responsable y moneda, y arranque
+// de show, trajes y mensualidades (Fase 3, cada uno en su archivo
+// bio-modulos-*.js). Solo aparecen si el dueño activó
 // el módulo para esta academia (academiaConsultarModulos); el Worker
 // también los rechaza si está apagado.
 //
@@ -14,6 +16,8 @@ const modulosPanel = (() => {
   const MINUTOS_MAX = 120;
   let activos = [];
   let minutosMarcaDoble = 30;   // minutos para que una marca repetida no cuente
+  let moneda = { codigo: "GTQ", simbolo: "Q" };
+  let monedasDisponibles = [];
   let clases = [];              // [{ id, nombre, horario, activa, inscritos }]
   let avisos = [];              // [{ id, tipo, titulo, texto, fijado, mes, anio, creadoEn, vigente }]
   let claseEditandoId = null;
@@ -49,6 +53,13 @@ const modulosPanel = (() => {
     el("bloqueClasesAlumna").hidden = true;
     el("bloqueClasesAlumna").innerHTML = "";
     el("etiquetaEditarClases").textContent = "Clases al mes";
+    // Fase 3
+    moneda = { codigo: "GTQ", simbolo: "Q" };
+    monedasDisponibles = [];
+    modulosShow.reiniciar();
+    modulosTrajes.reiniciar();
+    modulosMensualidades.reiniciar();
+    bioComun.cerrarModal();
   }
 
   async function iniciar() {
@@ -58,14 +69,28 @@ const modulosPanel = (() => {
       if (!r.success) return;
       activos = r.modulos || [];
       minutosMarcaDoble = r.minutosMarcaDoble || 30;
+      moneda = r.moneda || moneda;
+      monedasDisponibles = r.monedasDisponibles || [];
     } catch (e) {
       return; // sin conexión: el panel sigue sin módulos
     }
 
+    const conDinero = tiene("trajes") || tiene("mensualidades");
     let html = "";
     if (tiene("clases_asistencia")) html += htmlPanelClases();
     if (tiene("avisos")) html += htmlPanelAvisos();
+    if (tiene("show") || conDinero) html += htmlPanelResponsable(conDinero);
+    if (tiene("show")) html += modulosShow.html();
+    if (tiene("trajes")) html += modulosTrajes.html();
+    if (tiene("mensualidades")) html += modulosMensualidades.html();
     el("contenedorModulos").innerHTML = html;
+
+    // Fase 3: responsable, moneda, show, trajes y mensualidades.
+    if (tiene("show") || conDinero) iniciarResponsable(conDinero);
+    const contexto = { activos, moneda };
+    if (tiene("show")) modulosShow.iniciar();
+    if (tiene("trajes")) modulosTrajes.iniciar({ ...contexto });
+    if (tiene("mensualidades")) modulosMensualidades.iniciar({ ...contexto });
 
     if (tiene("clases_asistencia")) {
       el("etiquetaEditarClases").textContent = "Clases esperadas por mes (el cambio vale desde este mes)";
@@ -76,6 +101,56 @@ const modulosPanel = (() => {
     if (tiene("avisos")) {
       el("btnPublicarAviso").addEventListener("click", publicarAviso);
       cargarAvisos();
+    }
+  }
+
+  // ---------------------------------------------------------------
+  // Responsable (para la bitácora) y moneda — Fase 3
+  // ---------------------------------------------------------------
+  function htmlPanelResponsable(conDinero) {
+    return `
+      <div class="panel" id="panelResponsable">
+        <h2>👤 Registros</h2>
+        <div class="fila-formulario">
+          <div>
+            <label>Responsable (opcional)</label>
+            <input type="text" id="inputResponsable" maxlength="60" placeholder="Tu nombre" value="${escaparHtml(bioComun.responsable())}" />
+            <p class="ayuda" style="margin:4px 0 0;">Se recuerda en este navegador y queda anotado en la bitácora de cada pago, cargo o corrección.</p>
+          </div>
+          ${conDinero ? `
+            <div>
+              <label>Moneda</label>
+              <select id="selectMoneda">${monedasDisponibles.map((m) => `<option value="${m.codigo}"${m.codigo === moneda.codigo ? " selected" : ""}>${escaparHtml(m.nombre)}</option>`).join("")}</select>
+            </div>` : ""}
+        </div>
+        <p class="mensaje-error" id="mensajeErrorRegistros"></p>
+        <p class="mensaje-exito" id="mensajeExitoRegistros"></p>
+      </div>
+    `;
+  }
+
+  function iniciarResponsable(conDinero) {
+    el("inputResponsable").addEventListener("change", (e) => {
+      bioComun.guardarResponsable(e.target.value);
+      e.target.value = bioComun.responsable();
+    });
+    if (conDinero) el("selectMoneda").addEventListener("change", cambiarMoneda);
+  }
+
+  async function cambiarMoneda(e) {
+    const codigo = e.target.value;
+    el("mensajeErrorRegistros").textContent = "";
+    el("mensajeExitoRegistros").textContent = "";
+    try {
+      const r = await llamar("academiaActualizarMoneda", { moneda: codigo });
+      if (!r.success) { el("mensajeErrorRegistros").textContent = r.error || "No se pudo cambiar la moneda."; e.target.value = moneda.codigo; return; }
+      moneda = { codigo, simbolo: r.moneda.simbolo };
+      el("mensajeExitoRegistros").textContent = "Moneda guardada.";
+      if (tiene("trajes")) modulosTrajes.cambiarMoneda(moneda);
+      if (tiene("mensualidades")) modulosMensualidades.cambiarMoneda(moneda);
+    } catch (err) {
+      el("mensajeErrorRegistros").textContent = "No se pudo conectar. Inténtalo de nuevo.";
+      e.target.value = moneda.codigo;
     }
   }
 

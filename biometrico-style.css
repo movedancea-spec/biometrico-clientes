@@ -715,3 +715,7 @@ input[type="checkbox"]{ width:auto; margin:0; padding:0; accent-color:var(--colo
 .opcion-check{ display:flex; align-items:center; gap:8px; margin-bottom:8px; font-size:14px; cursor:pointer; }
 .texto-aviso{ white-space:pre-wrap; margin-top:6px; color:#3a2e3a; font-size:14px; }
 .tarjeta-item.aviso-fijado{ border-color:var(--color-marca); }
+
+/* ---- Fase 3: estados de mensualidad ---- */
+.etiqueta-estado.parcial{ background:#fff3cd; color:#8a6100; }
+.etiqueta-estado.exento{ background:#ececf1; color:#5b5b6b; }

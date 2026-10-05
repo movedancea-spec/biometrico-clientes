@@ -31,6 +31,7 @@ const modulosPortal = (() => {
     el("listaClasesInscritas").innerHTML = "";
     el("panelAvisosMes").hidden = true;
     el("panelImportantes").hidden = true;
+    modulosPortalCuentas.limpiar();
   }
 
   // r = respuesta de portalConsultarAlumna; entrada = alumno guardado.
@@ -50,6 +51,7 @@ const modulosPortal = (() => {
     }
 
     if (modulos.includes("avisos")) cargarAvisos(entrada);
+    modulosPortalCuentas.pintar(modulos, entrada);
   }
 
   function htmlAviso(a) {

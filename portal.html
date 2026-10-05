@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="biometrico-style.css?v=c9b0995d" />
+<link rel="stylesheet" href="biometrico-style.css?v=2f001eeb" />
 <script>
 // Aplica el color de marca de la última academia que se vio en ESTE
 // dispositivo (guardado en localStorage) ANTES de que se pinte la
@@ -155,6 +155,21 @@
     <div class="lista-tarjetas" id="listaImportantes"></div>
   </div>
 
+  <div class="panel" id="panelShowPortal" hidden>
+    <h2>🎭 Show</h2>
+    <div id="contenidoShowPortal"></div>
+  </div>
+
+  <div class="panel" id="panelTrajesPortal" hidden>
+    <h2>👗 Trajes</h2>
+    <div id="contenidoTrajesPortal"></div>
+  </div>
+
+  <div class="panel" id="panelMensualidadesPortal" hidden>
+    <h2>💳 Mensualidades</h2>
+    <div id="contenidoMensualidadesPortal"></div>
+  </div>
+
   <div class="panel" id="panelHistorialMeses">
     <h2>📅 Historial de asistencias (por mes)</h2>
     <p class="ayuda">Cuántas clases fue cada mes, contra las que le tocan según su plan.</p>
@@ -209,7 +224,9 @@
 
 </div>
 
-<script src="bio-modulos-portal.js?v=309879fc8ec2"></script>
-<script src="portal.js?v=309879fc8ec2"></script>
+<script src="bio-modulos-comun.js?v=56366d5c8e2d"></script>
+<script src="bio-modulos-portal-cuentas.js?v=56366d5c8e2d"></script>
+<script src="bio-modulos-portal.js?v=56366d5c8e2d"></script>
+<script src="portal.js?v=56366d5c8e2d"></script>
 </body>
 </html>
