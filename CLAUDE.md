@@ -20,6 +20,16 @@ Frontend del **Biométrico SaaS** (control de asistencia multi-cliente: academia
 - `bio-textos.js` — diccionario de los textos que cambian según `tipoCliente` (academia: alumno, Portal de Alumnos, papás…; empresa: colaborador, Portal de Colaboradores). Para una empresa ningún texto visible puede decir alumno, academia, papá, familia, clase ni empleado. Los textos fijos del HTML se marcan con `data-texto` / `data-texto-html` / `data-texto-placeholder` y se llenan con `bioTextos.aplicar`. Lo prueba `pruebas/textos.sh` en el backend.
 - `bio-modulos-panel.js` / `bio-modulos-portal.js` — módulos de academia (Fase 2: clases, asistencias del mes, avisos) en el panel y en el portal. `bio-modulos-panel.js` también arranca los de la Fase 3: `bio-modulos-show.js`, `bio-modulos-trajes.js` y `bio-modulos-mensualidades.js`; en el portal van en `bio-modulos-portal-cuentas.js`. El módulo pagos (Fase 4) va en `bio-modulos-pagos.js` (panel) y `bio-modulos-portal-pagos.js` (portal). `bio-modulos-comun.js` tiene lo compartido (dinero en centavos, meses, fechas de Guatemala, CSV, responsable, modal). Se cargan antes de `academia.js` / `portal.js` y usan sus funciones. Solo se muestran si el dueño activó el módulo para esa academia (y el Worker los rechaza si está apagado). El prefijo `bio-` es para no chocar con archivos del Portal de MOVE.
 
+## Arquitectura actual (resumen; el detalle del backend está en ~/biometrico-saas/CLAUDE.md)
+
+- **Reglas:** solo se trabaja aquí y en `~/biometrico-saas`. Nunca tocar `portalpapasMOVE` ni `academiamovedance.com`. Nunca hacer `git push` de este repo ni deploy: lo hace Ana (aquí solo commit). No tocar el cobro del SaaS (panel "💳 Mensualidad" del cliente) salvo lo pedido.
+- **Sesiones:** cada página guarda su token en `localStorage` (no contraseñas). Las fotos vienen con URL firmada del Worker.
+- **Portal:** se entra con el link `portal.html?a=<código público>` (los viejos `?academia=<id>` siguen sirviendo) + código del alumno + PIN.
+- **Módulos de academia** (`bio-modulos-*.js`): clases y asistencias del mes, avisos, show, trajes (catálogo y vínculos), mensualidades por alumno y pagos. Solo para `tipoCliente = "academia"` y solo si el dueño los activó.
+- **Pagos de las familias:** dos opciones no excluyentes, tarjeta (Paggo, monto exacto) y transferencia o depósito con comprobante. Si están las dos, "Pagar" deja elegir.
+- **Textos por tipo:** todo texto que cambia entre academia y empresa va en `bio-textos.js` (para empresas: colaborador, empresa; nunca alumno, academia, papá, familia, clase ni empleado).
+- **Período de prueba:** el panel del cliente muestra los días que le quedan (aviso destacado en la última semana) y el dueño ve "En prueba (N días)" con un filtro.
+
 ## Actualización automática
 
 Cada JS tiene `VERSION_APP` y revisa `version.txt` para recargarse solo cuando se sube algo nuevo. Al cambiar cualquier JS, pon el mismo valor nuevo en `VERSION_APP` de los 4 JS **y** en `version.txt`, y sube el `?v=` de los archivos tocados en el HTML (los `bio-modulos-*.js` no tienen `VERSION_APP` propio: llevan en su `?v=` el mismo valor). Si cambia `biometrico-style.css`, sube su `?v=` en los 4 HTML.
