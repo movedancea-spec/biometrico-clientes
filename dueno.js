@@ -10,14 +10,12 @@ const API_URL = "https://biometrico-saas.movedancea.workers.dev";
 // nueva de los archivos — ver verificarActualizacion() al final de
 // este archivo. NO cambiar este valor a mano: lo actualiza el script
 // actualizar-versiones.mjs cada vez que algo cambia.
-const VERSION_APP = "d3c2916638bb";
+const VERSION_APP = "20f7f7b64107";
 
 const el = (id) => document.getElementById(id);
 
-// Sesión del dueño: { token, expiraEn }. La contraseña ya NO se guarda
-// — solo el token que devuelve duenoLogin. "claveVieja" solo existe
-// mientras se migra una sesión de antes de los tokens (ver
-// migrarSesionVieja más abajo) y se borra apenas hay token.
+// Sesión del dueño: { token, expiraEn }. La contraseña NO se guarda —
+// solo el token que devuelve duenoLogin.
 let sesion = null;
 let academiaEditandoId = null;
 
@@ -26,11 +24,10 @@ const MENSAJE_SESION_VENCIDA = "Tu sesión terminó. Vuelve a escribir tu clave 
 async function llamar(accion, datos) {
   const headers = { "Content-Type": "application/json" };
   if (sesion?.token) headers.Authorization = `Bearer ${sesion.token}`;
-  const extra = !sesion?.token && sesion?.claveVieja ? { claveDueno: sesion.claveVieja } : {};
   const resp = await fetch(API_URL, {
     method: "POST",
     headers,
-    body: JSON.stringify({ accion, ...extra, ...datos }),
+    body: JSON.stringify({ accion, ...datos }),
   });
   const r = await resp.json();
   if (resp.status === 401 && sesion) volverALogin(MENSAJE_SESION_VENCIDA);
@@ -85,9 +82,7 @@ function cargarSesionGuardada() {
     const cruda = localStorage.getItem("biometrico_sesion_dueno");
     if (cruda) return JSON.parse(cruda);
   } catch (e) { /* dato corrupto — se ignora */ }
-  // Sesión de antes de los tokens: solo la clave suelta.
-  const claveVieja = localStorage.getItem("biometrico_clave_dueno");
-  return claveVieja ? { claveVieja } : null;
+  return null;
 }
 
 function sesionVencida(s) {
@@ -101,22 +96,6 @@ async function pedirToken(claveDueno) {
     body: JSON.stringify({ accion: "duenoLogin", claveDueno }),
   });
   return { status: resp.status, r: await resp.json() };
-}
-
-// Migración: si este navegador todavía tiene la clave guardada de antes,
-// se cambia UNA vez por un token y la clave se borra. Si no se puede
-// ahora (sin internet, demasiados intentos...), se sigue usando la
-// clave por el camino viejo y se reintenta más tarde.
-async function migrarSesionVieja() {
-  if (!sesion?.claveVieja || sesion.token) return;
-  try {
-    const { r } = await pedirToken(sesion.claveVieja);
-    if (!r.success || !r.token || !sesion?.claveVieja) return;
-    guardarSesion({ token: r.token, expiraEn: r.expiraEn });
-    localStorage.removeItem("biometrico_clave_dueno");
-  } catch (e) {
-    // Se reintenta en el siguiente ciclo.
-  }
 }
 
 // ---------------------------------------------------------------
@@ -352,9 +331,9 @@ function pintarHistorialPagos(pagos) {
       partes.push(`<a href="${escaparHtml(p.paggo_link)}" target="_blank" rel="noopener">Ver link de pago →</a>`);
     }
     if (p.comprobante_key) {
-      // Respaldo sin firma si el Worker no manda comprobanteUrl — quitar en Fase 1c.
-      const urlComprobante = p.comprobanteUrl || `${API_URL}/foto?key=${encodeURIComponent(p.comprobante_key)}`;
-      partes.push(`<a href="${escaparHtml(urlComprobante)}" target="_blank" rel="noopener">📎 Ver comprobante →</a>`);
+      partes.push(p.comprobanteUrl
+        ? `<a href="${escaparHtml(p.comprobanteUrl)}" target="_blank" rel="noopener">📎 Ver comprobante →</a>`
+        : "📎 Comprobante subido (no se pudo generar el enlace)");
     }
     div.innerHTML = `
       <div class="info-principal">
@@ -535,19 +514,18 @@ el("btnCrearAcademia").addEventListener("click", async () => {
 });
 
 // ---------------------------------------------------------------
-// INICIO — si ya había una sesión guardada, entra directo. Si era una
-// sesión vieja (con la clave guardada), se cambia por un token en
-// segundo plano, sin pedirle nada a Ana.
+// INICIO — si ya había una sesión guardada, entra directo. La clave
+// suelta de antes de los tokens (biometrico_clave_dueno) ya no sirve:
+// se borra del navegador.
 // ---------------------------------------------------------------
 {
+  localStorage.removeItem("biometrico_clave_dueno");
   const guardada = cargarSesionGuardada();
-  if (sesionVencida(guardada)) {
+  if (guardada && (!guardada.token || sesionVencida(guardada))) {
     volverALogin(MENSAJE_SESION_VENCIDA);
   } else if (guardada) {
     sesion = guardada;
     mostrarPanel();
-    migrarSesionVieja();
-    setInterval(migrarSesionVieja, 5 * 60 * 1000);
   }
 }
 

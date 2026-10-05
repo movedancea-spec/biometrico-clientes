@@ -10,21 +10,21 @@ const API_URL = "https://biometrico-saas.movedancea.workers.dev";
 // nueva de los archivos — ver verificarActualizacion() al final de
 // este archivo. NO cambiar este valor a mano: lo actualiza el script
 // actualizar-versiones.mjs cada vez que algo cambia.
-const VERSION_APP = "d3c2916638bb";
+const VERSION_APP = "20f7f7b64107";
 
 const el = (id) => document.getElementById(id);
 
 // { token, expiraEn, academiaId, nombre, limiteAlumnas, ... } — la
-// contraseña ya NO se guarda. "clave" solo existe en sesiones de antes
-// de los tokens, mientras se migran (ver migrarSesionVieja).
+// contraseña NO se guarda. Una sesión guardada sin token (de antes de
+// los tokens) ya no sirve: al abrir se borra y se pide entrar de nuevo.
 let sesion = null;
 let alumnaEditandoId = null;
 let fotoNuevaBase64 = null; // usada tanto para crear como para editar (se limpia entre usos)
 let intervaloAlumnas = null; // refresca sola la lista de alumnos (asistencias en tiempo casi real)
 
-// Solo para el logo (que sigue siendo público) y para el respaldo de
-// abajo. Las fotos de alumnos y de verificación vienen ya firmadas del
-// Worker (fotoUrl / fotoVerificacionUrl).
+// Solo para el logo (que sigue siendo público). Las fotos de alumnos y
+// de verificación vienen ya firmadas del Worker (fotoUrl /
+// fotoVerificacionUrl); sin firma, /foto no las sirve.
 function urlFoto(fotoKey) {
   return fotoKey ? `${API_URL}/foto?key=${encodeURIComponent(fotoKey)}` : "";
 }
@@ -41,10 +41,9 @@ function urlFotoFirmada(fotoKey, urlDelServidor) {
   if (!fotoKey) return "";
   const guardada = urlsFotoFirmadas.get(fotoKey);
   if (guardada && Date.now() - guardada.en < MS_REUSAR_URL_FOTO) return guardada.url;
-  // Respaldo sin firma si el Worker no manda la URL — quitar en Fase 1c.
-  const url = urlDelServidor || urlFoto(fotoKey);
-  urlsFotoFirmadas.set(fotoKey, { url, en: Date.now() });
-  return url;
+  if (!urlDelServidor) return "";
+  urlsFotoFirmadas.set(fotoKey, { url: urlDelServidor, en: Date.now() });
+  return urlDelServidor;
 }
 
 const MENSAJE_SESION_VENCIDA = "Tu sesión terminó. Vuelve a entrar con el nombre de tu cuenta y tu contraseña.";
@@ -52,11 +51,10 @@ const MENSAJE_SESION_VENCIDA = "Tu sesión terminó. Vuelve a entrar con el nomb
 async function llamar(accion, datos) {
   const headers = { "Content-Type": "application/json" };
   if (sesion?.token) headers.Authorization = `Bearer ${sesion.token}`;
-  const extra = !sesion?.token && sesion?.clave ? { academiaId: sesion.academiaId, clave: sesion.clave } : {};
   const resp = await fetch(API_URL, {
     method: "POST",
     headers,
-    body: JSON.stringify({ accion, ...extra, ...datos }),
+    body: JSON.stringify({ accion, ...datos }),
   });
   const r = await resp.json();
   if (resp.status === 401 && sesion) volverALogin(MENSAJE_SESION_VENCIDA);
@@ -262,27 +260,6 @@ async function pedirToken(nombre, clave) {
     body: JSON.stringify({ accion: "academiaLogin", nombre, clave }),
   });
   return { status: resp.status, r: await resp.json() };
-}
-
-// Migración: una sesión de antes de los tokens (con la clave guardada)
-// se cambia UNA vez por un token y la clave se borra — sin pedirle a
-// nadie que vuelva a entrar. Si no se puede ahora (sin internet, nombre
-// de cuenta cambiado, demasiados intentos...), se sigue usando la clave
-// por el camino viejo y se reintenta más tarde.
-async function migrarSesionVieja() {
-  if (!sesion?.clave || sesion.token) return;
-  try {
-    const { r } = await pedirToken(sesion.nombre, sesion.clave);
-    if (!r.success || !r.token || !sesion?.clave) return;
-    sesion.token = r.token;
-    sesion.expiraEn = r.expiraEn;
-    sesion.tipoCliente = r.tipoCliente || sesion.tipoCliente || "academia";
-    sesion.codigoPublico = r.codigoPublico || sesion.codigoPublico || null;
-    delete sesion.clave;
-    guardarSesion(sesion);
-  } catch (e) {
-    // Se reintenta en el siguiente ciclo.
-  }
 }
 
 function ajustarInterfazSegunTipo() {
@@ -611,14 +588,8 @@ el("btnCambiarClave").addEventListener("click", async () => {
   try {
     const r = await llamar("academiaCambiarClave", { claveNueva });
     if (!r.success) { el("mensajeErrorClave").textContent = r.error || "No se pudo cambiar."; return; }
-    // Con token no hay nada que actualizar: el servidor deja viva esta
-    // sesión y cierra las demás. Solo una sesión vieja sin migrar
-    // (que todavía usa la clave en cada acción) necesita la nueva.
-    if (sesion.clave) {
-      sesion.clave = claveNueva;
-      guardarSesion(sesion);
-      migrarSesionVieja();
-    }
+    // No hay nada que actualizar aquí: el servidor deja viva esta
+    // sesión y cierra las demás.
     el("inputClaveNueva").value = "";
     el("inputClaveNuevaConfirmar").value = "";
     el("mensajeExitoClave").textContent = "¡Contraseña cambiada! La vas a necesitar la próxima vez que entres.";
@@ -1008,9 +979,8 @@ async function cargarAsistenciasAlumna() {
       return;
     }
     cont.innerHTML = r.asistencias.map((a) => {
-      // Respaldo sin firma si no viene fotoVerificacionUrl — quitar en Fase 1c.
-      const urlVerificacion = escaparHtml(a.fotoVerificacionUrl || urlFoto(a.fotoVerificacionKey));
-      const foto = a.fotoVerificacionKey
+      const urlVerificacion = escaparHtml(a.fotoVerificacionUrl || "");
+      const foto = a.fotoVerificacionUrl
         ? `<img class="foto-miniatura" src="${urlVerificacion}" alt="" style="cursor:pointer" data-foto="${urlVerificacion}" />`
         : `<div class="foto-miniatura vacia">🧑</div>`;
       return `
@@ -1130,14 +1100,14 @@ el("btnGuardarMarca").addEventListener("click", async () => {
 // ---------------------------------------------------------------
 if (!tokenRecuperacion) {
   const sesionGuardada = cargarSesionGuardada();
-  if (sesionVencida(sesionGuardada)) {
+  // Sin token es una sesión de antes de los tokens (con la contraseña
+  // guardada): se borra del navegador y se pide entrar de nuevo.
+  if (sesionGuardada && (!sesionGuardada.token || sesionVencida(sesionGuardada))) {
     volverALogin(MENSAJE_SESION_VENCIDA);
   } else if (sesionGuardada) {
     sesion = sesionGuardada;
     mostrarPanel();
-    migrarSesionVieja();
   }
-  setInterval(migrarSesionVieja, 5 * 60 * 1000);
 }
 
 // ---------------------------------------------------------------

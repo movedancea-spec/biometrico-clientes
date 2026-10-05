@@ -10,16 +10,15 @@ const API_URL = "https://biometrico-saas.movedancea.workers.dev";
 // nueva de los archivos — ver verificarActualizacion() al final de
 // este archivo. NO cambiar este valor a mano: lo actualiza el script
 // actualizar-versiones.mjs cada vez que algo cambia.
-const VERSION_APP = "d3c2916638bb";
+const VERSION_APP = "20f7f7b64107";
 
 const el = (id) => document.getElementById(id);
 
 // Cada alumno agregado en ESTE dispositivo se guarda aquí (localStorage)
 // con SU propio token de sesión (portalLoginCodigo) — así un mismo
 // teléfono puede tener varios hermanos a la vez, cada uno con su
-// sesión. La contraseña/PIN ya NO se guarda: "clave" solo existe en
-// alumnos agregados antes de los tokens, mientras se migran (ver
-// migrarSesionesViejas).
+// sesión. La contraseña/PIN NO se guarda. Un alumno guardado sin token
+// (de antes de los tokens) ya no sirve: al abrir se quita del teléfono.
 let alumnasGuardadas = [];   // [{alumnaId, token, expiraEn, nombre, codigo, fotoKey, fotoUrl, fotoUrlEn, clasesPorMes, academiaId, codigoAcademia, academiaNombre, colorMarca, logoKey, tipoCliente}]
 let alumnaActivaId = null;   // cuál de las de arriba se está viendo ahora
 let academiaLogin = null;    // academia de la pantalla de login: { codigo } (link ?a=...) o { id } (link viejo ?academia=ID); viene del link o de un hermano
@@ -52,11 +51,10 @@ function alumnaActiva() {
 async function llamar(accion, datos, entrada = alumnaActiva()) {
   const headers = { "Content-Type": "application/json" };
   if (entrada?.token) headers.Authorization = `Bearer ${entrada.token}`;
-  const extra = !entrada?.token && entrada?.clave ? { alumnaId: entrada.alumnaId, clave: entrada.clave } : {};
   const resp = await fetch(API_URL, {
     method: "POST",
     headers,
-    body: JSON.stringify({ accion, ...extra, ...datos }),
+    body: JSON.stringify({ accion, ...datos }),
   });
   const r = await resp.json();
   if (resp.status === 401 && entrada && accion !== "cerrarSesion") sesionTerminada(entrada);
@@ -104,8 +102,8 @@ function escaparHtml(t) {
   return d.innerHTML;
 }
 
-// Solo para el logo (que sigue siendo público) y para el respaldo de
-// urlFotoAlumna(). La foto del alumno viene ya firmada (fotoUrl).
+// Solo para el logo (que sigue siendo público). La foto del alumno
+// viene ya firmada (fotoUrl); sin firma, /foto no la sirve.
 function urlFoto(fotoKey) {
   return fotoKey ? `${API_URL}/foto?key=${encodeURIComponent(fotoKey)}` : "";
 }
@@ -116,9 +114,7 @@ function urlFoto(fotoKey) {
 const MS_URL_FOTO_VIGENTE = 45 * 60 * 1000;
 
 function urlFotoAlumna(entrada) {
-  if (!entrada.fotoKey) return "";
-  // Respaldo sin firma si el Worker no manda fotoUrl — quitar en Fase 1c.
-  if (!entrada.fotoUrl) return urlFoto(entrada.fotoKey);
+  if (!entrada.fotoKey || !entrada.fotoUrl) return "";
   return Date.now() - (entrada.fotoUrlEn || 0) < MS_URL_FOTO_VIGENTE ? entrada.fotoUrl : "";
 }
 
@@ -363,7 +359,7 @@ async function cargarMarcaLogin(academia) {
 }
 
 // Datos que se guardan de cada alumno a partir de la respuesta de
-// portalLoginCodigo (o de portalLogin, al migrar una sesión vieja).
+// portalLoginCodigo.
 function entradaDesdeLogin(r) {
   return {
     alumnaId: r.alumnaId, token: r.token, expiraEn: r.expiraEn,
@@ -488,40 +484,6 @@ function sesionTerminada(entrada) {
   if (!alumnasGuardadas.some((a) => a.alumnaId === entrada.alumnaId)) return; // ya se atendió
   quitarDeLaLista(entrada.alumnaId);
   mostrarLogin(academiaDeEntrada(entrada), `La sesión de ${entrada.nombre} terminó. Vuelve a entrar con su código y su PIN.`);
-}
-
-// ---------------------------------------------------------------
-// Migración de alumnos guardados antes de los tokens (con la clave en
-// el teléfono): se cambia la clave de cada uno por un token UNA vez y
-// se borra — sin pedirle nada a los papás. Si no se puede ahora (sin
-// internet, demasiados intentos...), se sigue usando la clave por el
-// camino viejo y se reintenta más tarde.
-// ---------------------------------------------------------------
-async function migrarSesionesViejas() {
-  for (const entrada of alumnasGuardadas.filter((a) => a.clave && !a.token)) {
-    try {
-      // Con academia + código se usa el login nuevo; los alumnos que se
-      // guardaron antes de que existiera academiaId usan el viejo.
-      const datos = entrada.academiaId && entrada.codigo
-        ? { accion: "portalLoginCodigo", academiaId: Number(entrada.academiaId), codigo: Number(entrada.codigo), clave: entrada.clave }
-        : { accion: "portalLogin", alumnaId: entrada.alumnaId, clave: entrada.clave };
-      const resp = await fetch(API_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(datos),
-      });
-      const r = await resp.json();
-      if (!r.success || !r.token) continue;
-      // Puede que mientras tanto la hayan quitado de este dispositivo.
-      const actual = alumnasGuardadas.find((a) => a.alumnaId === entrada.alumnaId);
-      if (!actual || actual.token) continue;
-      Object.assign(actual, entradaDesdeLogin(r));
-      delete actual.clave;
-      guardarAlumnasEnDisco();
-    } catch (e) {
-      // Se reintenta en el siguiente ciclo.
-    }
-  }
 }
 
 // ---------------------------------------------------------------
@@ -909,15 +871,8 @@ el("btnCambiarClavePortal").addEventListener("click", async () => {
     const r = await llamar("portalCambiarClave", { claveNueva });
     if (!r.success) { el("mensajeErrorClavePortal").textContent = r.error || "No se pudo cambiar."; return; }
 
-    // Con token no hay nada que actualizar: el servidor deja viva esta
-    // sesión y cierra la de los demás teléfonos. Solo un alumno sin
-    // migrar (que todavía usa la clave en cada llamada) necesita la nueva.
-    const entrada = alumnaActiva();
-    if (entrada?.clave) {
-      entrada.clave = claveNueva;
-      guardarAlumnasEnDisco();
-      migrarSesionesViejas();
-    }
+    // No hay nada que actualizar aquí: el servidor deja viva esta
+    // sesión y cierra la de los demás teléfonos.
 
     el("mensajeExitoClavePortal").textContent = "Contraseña actualizada.";
     el("inputClaveNuevaPortal").value = "";
@@ -1001,8 +956,9 @@ el("btnCerrarSesionPortal").addEventListener("click", async () => {
 
   cargarAlumnasDeDisco();
 
-  // Alumnos cuya sesión ya venció (por fecha) se quitan de una vez.
-  const vencidas = alumnasGuardadas.filter((a) => a.expiraEn && new Date(a.expiraEn).getTime() <= Date.now());
+  // Alumnos cuya sesión ya venció (por fecha), o guardados sin token (de
+  // antes de los tokens, con el PIN en el teléfono), se quitan de una vez.
+  const vencidas = alumnasGuardadas.filter((a) => !a.token || (a.expiraEn && new Date(a.expiraEn).getTime() <= Date.now()));
   vencidas.forEach((a) => quitarDeLaLista(a.alumnaId));
 
   // "?a=CODIGO" es el link que cada academia comparte con sus papás
@@ -1025,9 +981,6 @@ el("btnCerrarSesionPortal").addEventListener("click", async () => {
   } else {
     mostrarPantallaSinEnlace();
   }
-
-  migrarSesionesViejas();
-  setInterval(migrarSesionesViejas, 5 * 60 * 1000);
 })();
 
 // ---------------------------------------------------------------

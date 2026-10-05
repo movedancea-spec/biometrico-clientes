@@ -14,31 +14,27 @@ const API_URL = "https://biometrico-saas.movedancea.workers.dev";
 // nueva de los archivos — ver verificarActualizacion() al final de
 // este archivo. NO cambiar este valor a mano: lo actualiza el script
 // actualizar-versiones.mjs cada vez que algo cambia.
-const VERSION_APP = "d3c2916638bb";
+const VERSION_APP = "20f7f7b64107";
 
 const el = (id) => document.getElementById(id);
 
 // { token, expiraEn, academiaId, nombre, colorMarca, logoKey, tipoCliente }
-// — la contraseña ya NO se guarda. "clave" solo existe en tablets que
-// tenían sesión de antes de los tokens, mientras se migran (ver
-// migrarSesionVieja): hasta que se consiga el token, la tablet sigue
-// marcando con la clave por el camino viejo, sin que nadie la toque.
+// — la contraseña NO se guarda. Una sesión guardada sin token (de antes
+// de los tokens) ya no sirve: al abrir se borra y se pide entrar de nuevo.
 let sesion = null;
 let codigoActual = "";
 let timeoutResultado = null;
 
 document.body.classList.add("modo-kiosko");
 
-// Solo para el logo (que sigue siendo público) y para el respaldo de
-// fotoAlumna(). Las fotos de alumnos vienen ya firmadas (fotoUrl).
+// Solo para el logo (que sigue siendo público). Las fotos de alumnos
+// vienen ya firmadas (fotoUrl); sin firma, /foto no las sirve.
 function urlFoto(fotoKey) {
   return fotoKey ? `${API_URL}/foto?key=${encodeURIComponent(fotoKey)}` : "";
 }
 
 function fotoAlumna(alumna) {
-  if (!alumna.fotoKey) return "";
-  // Respaldo sin firma si el Worker no manda fotoUrl — quitar en Fase 1c.
-  return alumna.fotoUrl || urlFoto(alumna.fotoKey);
+  return (alumna.fotoKey && alumna.fotoUrl) || "";
 }
 
 // ---------------------------------------------------------------
@@ -128,11 +124,10 @@ const MENSAJE_SESION_VENCIDA = "La sesión de esta tablet terminó. Vuelve a esc
 async function llamar(accion, datos) {
   const headers = { "Content-Type": "application/json" };
   if (sesion?.token) headers.Authorization = `Bearer ${sesion.token}`;
-  const extra = !sesion?.token && sesion?.clave ? { academiaId: sesion.academiaId, clave: sesion.clave } : {};
   const resp = await fetch(API_URL, {
     method: "POST",
     headers,
-    body: JSON.stringify({ accion, ...extra, ...datos }),
+    body: JSON.stringify({ accion, ...datos }),
   });
   const r = await resp.json();
   if (resp.status === 401 && sesion) volverALogin(MENSAJE_SESION_VENCIDA);
@@ -205,27 +200,6 @@ async function pedirToken(nombre, clave) {
     body: JSON.stringify({ accion: "academiaLogin", nombre, clave, dispositivoToken: obtenerOCrearTokenDispositivo() }),
   });
   return { status: resp.status, r: await resp.json() };
-}
-
-// Migración de una tablet que ya estaba funcionando antes de los
-// tokens: se cambia la clave guardada por un token UNA vez y la clave
-// se borra. Si no se puede ahora (sin internet, demasiados intentos, le
-// cambiaron el nombre a la cuenta...), NO se saca a la tablet de la
-// pantalla de marcar: sigue usando la clave por el camino viejo y se
-// reintenta cada 5 minutos.
-async function migrarSesionVieja() {
-  if (!sesion?.clave || sesion.token) return;
-  try {
-    const { r } = await pedirToken(sesion.nombre, sesion.clave);
-    if (!r.success || !r.token || !sesion?.clave) return;
-    sesion.token = r.token;
-    sesion.expiraEn = r.expiraEn;
-    sesion.tipoCliente = r.tipoCliente || sesion.tipoCliente || "academia";
-    delete sesion.clave;
-    guardarSesion(sesion);
-  } catch (e) {
-    // Se reintenta en el siguiente ciclo.
-  }
 }
 
 function volverALogin(mensaje) {
@@ -436,7 +410,7 @@ function mostrarConfirmacion(alumna) {
   el("pantallaTeclado").hidden = true;
   el("pantallaConfirmacion").hidden = false;
 
-  const foto = alumna.fotoKey
+  const foto = fotoAlumna(alumna)
     ? `<img class="foto-bienvenida" src="${escaparHtml(fotoAlumna(alumna))}" alt="" />`
     : `<div class="foto-bienvenida vacia">💃</div>`;
 
@@ -516,7 +490,7 @@ function mostrarBienvenida(r) {
   el("pantallaTeclado").hidden = true;
   el("pantallaResultado").hidden = false;
 
-  const foto = r.alumna.fotoKey
+  const foto = fotoAlumna(r.alumna)
     ? `<img class="foto-bienvenida" src="${escaparHtml(fotoAlumna(r.alumna))}" alt="" />`
     : `<div class="foto-bienvenida vacia">💃</div>`;
 
@@ -540,17 +514,16 @@ function mostrarBienvenida(r) {
 // INICIO
 // ---------------------------------------------------------------
 // Si la tablet ya tenía sesión, entra directo al teclado SIN esperar a
-// la red — la migración de una sesión vieja corre en segundo plano.
+// la red. Una sesión sin token (de antes de los tokens, con la
+// contraseña guardada) se borra y se pide entrar de nuevo.
 const sesionGuardada = cargarSesionGuardada();
-if (sesionVencida(sesionGuardada)) {
+if (sesionGuardada && (!sesionGuardada.token || sesionVencida(sesionGuardada))) {
   volverALogin(MENSAJE_SESION_VENCIDA);
 } else if (sesionGuardada) {
   sesion = sesionGuardada;
   mostrarTeclado();
-  migrarSesionVieja();
   refrescarMarca();
 }
-setInterval(migrarSesionVieja, 5 * 60 * 1000);
 setInterval(refrescarMarca, 3 * 60 * 1000);
 
 // ---------------------------------------------------------------
