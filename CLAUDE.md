@@ -17,10 +17,11 @@ Frontend del **Biométrico SaaS** (control de asistencia multi-cliente: academia
 - `biometrico.html`/`.js` — kiosko de entrada para dejar fijo en una tablet.
 - `portal.html`/`.js` + `portal-sw.js` — Portal de Alumnos para papás/empleados: historial de asistencia y avisos push de llegada.
 - `biometrico-style.css` — estilos compartidos por todas.
+- `bio-modulos-panel.js` / `bio-modulos-portal.js` — módulos de academia (Fase 2: clases, asistencias del mes, avisos) en el panel y en el portal. Se cargan antes de `academia.js` / `portal.js` y usan sus funciones. Solo se muestran si el dueño activó el módulo para esa academia (y el Worker los rechaza si está apagado). El prefijo `bio-` es para no chocar con archivos del Portal de MOVE.
 
 ## Actualización automática
 
-Cada JS tiene `VERSION_APP` y revisa `version.txt` para recargarse solo cuando se sube algo nuevo. Al cambiar cualquier JS, pon el mismo valor nuevo en `VERSION_APP` de los 4 JS **y** en `version.txt`, y sube el `?v=` de los archivos tocados en el HTML.
+Cada JS tiene `VERSION_APP` y revisa `version.txt` para recargarse solo cuando se sube algo nuevo. Al cambiar cualquier JS, pon el mismo valor nuevo en `VERSION_APP` de los 4 JS **y** en `version.txt`, y sube el `?v=` de los archivos tocados en el HTML (los `bio-modulos-*.js` no tienen `VERSION_APP` propio: llevan en su `?v=` el mismo valor). Si cambia `biometrico-style.css`, sube su `?v=` en los 4 HTML.
 
 ## Regla: nunca compartir nombres de archivo con el Portal de MOVE
 

@@ -10,7 +10,7 @@ const API_URL = "https://biometrico-saas.movedancea.workers.dev";
 // nueva de los archivos — ver verificarActualizacion() al final de
 // este archivo. NO cambiar este valor a mano: lo actualiza el script
 // actualizar-versiones.mjs cada vez que algo cambia.
-const VERSION_APP = "20f7f7b64107";
+const VERSION_APP = "0beb8f2aa7b2";
 
 const el = (id) => document.getElementById(id);
 
@@ -336,7 +336,7 @@ function pintarMarcaLogin(marca) {
   el("tituloLoginPortal").textContent = marca?.nombre ? marca.nombre : "🧒 Entrar al portal";
   const esEmpresa = marca?.tipoCliente === "empresa";
   el("subtituloLoginPortal").textContent = marca?.nombre
-    ? `Escribe el código ${esEmpresa ? "del empleado" : "de tu hijo"} y su PIN del portal.`
+    ? `Escribe el código ${esEmpresa ? "del empleado" : "del alumno"} y su PIN del portal.`
     : "Escribe el código del alumno y su PIN del portal.";
 }
 
@@ -499,8 +499,8 @@ el("btnRestablecerPortalClave").addEventListener("click", async () => {
   el("mensajeErrorRestablecerPortal").textContent = "";
   el("mensajeExitoRestablecerPortal").textContent = "";
 
-  if (claveNueva.length < 4) { el("mensajeErrorRestablecerPortal").textContent = "La contraseña debe tener al menos 4 caracteres."; return; }
-  if (claveNueva !== claveConfirmar) { el("mensajeErrorRestablecerPortal").textContent = "Las contraseñas no coinciden."; return; }
+  if (claveNueva.length < 4) { el("mensajeErrorRestablecerPortal").textContent = "El PIN debe tener al menos 4 caracteres."; return; }
+  if (claveNueva !== claveConfirmar) { el("mensajeErrorRestablecerPortal").textContent = "Los PIN no coinciden."; return; }
 
   el("btnRestablecerPortalClave").disabled = true;
   try {
@@ -513,7 +513,7 @@ el("btnRestablecerPortalClave").addEventListener("click", async () => {
     if (resp.status === 429) r.error = textoBloqueo(r.reintentarEnSegundos);
 
     if (!r.success) { el("mensajeErrorRestablecerPortal").textContent = r.error || "No se pudo actualizar."; return; }
-    el("mensajeExitoRestablecerPortal").textContent = "¡Listo! Ya puedes iniciar sesión con tu contraseña nueva.";
+    el("mensajeExitoRestablecerPortal").textContent = "¡Listo! Ya puedes entrar con tu PIN nuevo.";
     history.replaceState(null, "", location.pathname);
     setTimeout(() => {
       cargarAlumnasDeDisco();
@@ -564,6 +564,7 @@ async function seleccionarAlumna(alumnaId) {
   el("codigoAlumnaPortal").textContent = `#${entrada.codigo}`;
   pintarFotoAlumna(urlFotoAlumna(entrada));
   el("statClasesEsteMes").textContent = "—";
+  modulosPortal.limpiar();
   el("inputEmailFamiliaPortal").value = "";
   el("mensajeErrorPush").textContent = "";
 
@@ -592,6 +593,7 @@ async function seleccionarAlumna(alumnaId) {
     el("codigoAlumnaPortal").textContent = `#${entrada.codigo}`;
     pintarFotoAlumna(urlFotoAlumna(entrada));
     el("statClasesEsteMes").textContent = `${r.clasesEsteMes} / ${r.clasesPorMes}`;
+    modulosPortal.pintar(r, entrada);
     el("inputEmailFamiliaPortal").value = r.emailFamilia || "";
   } catch (e) {
     // Sin conexión — se deja lo que ya había en caché en vez de tronar.
@@ -651,13 +653,15 @@ async function cargarHistorialMeses() {
     const actual = (r.historial || []).find((h) => h.mes === mesActual);
     const anteriores = (r.historial || []).filter((h) => h.mes !== mesActual);
 
+    // Con el módulo de asistencias cada mes trae sus propias clases
+    // esperadas ("esperadas"); sin él se usa clasesPorMes para todos.
     let html = tarjetaMes(mesActual, actual ? actual.cantidad : 0, r.clasesPorMes, true);
 
     if (anteriores.length) {
       html += `
         <button type="button" class="btn secundario chico" id="btnVerMesesAnteriores" style="margin-top:10px;">Ver meses anteriores ▾</button>
         <div id="listaMesesAnteriores" hidden style="margin-top:10px;">
-          ${anteriores.map((h) => tarjetaMes(h.mes, h.cantidad, r.clasesPorMes, false)).join("")}
+          ${anteriores.map((h) => tarjetaMes(h.mes, h.cantidad, h.esperadas ?? r.clasesPorMes, false)).join("")}
         </div>
       `;
     }
@@ -863,8 +867,8 @@ el("btnCambiarClavePortal").addEventListener("click", async () => {
   el("mensajeErrorClavePortal").textContent = "";
   el("mensajeExitoClavePortal").textContent = "";
 
-  if (claveNueva.length < 4) { el("mensajeErrorClavePortal").textContent = "La contraseña debe tener al menos 4 caracteres."; return; }
-  if (claveNueva !== claveConfirmar) { el("mensajeErrorClavePortal").textContent = "Las contraseñas no coinciden."; return; }
+  if (claveNueva.length < 4) { el("mensajeErrorClavePortal").textContent = "El PIN debe tener al menos 4 caracteres."; return; }
+  if (claveNueva !== claveConfirmar) { el("mensajeErrorClavePortal").textContent = "Los PIN no coinciden."; return; }
 
   el("btnCambiarClavePortal").disabled = true;
   try {
@@ -874,7 +878,7 @@ el("btnCambiarClavePortal").addEventListener("click", async () => {
     // No hay nada que actualizar aquí: el servidor deja viva esta
     // sesión y cierra la de los demás teléfonos.
 
-    el("mensajeExitoClavePortal").textContent = "Contraseña actualizada.";
+    el("mensajeExitoClavePortal").textContent = "PIN actualizado.";
     el("inputClaveNuevaPortal").value = "";
     el("inputClaveNuevaPortalConfirmar").value = "";
   } catch (e) {

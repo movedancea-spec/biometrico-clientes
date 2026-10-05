@@ -10,7 +10,7 @@ const API_URL = "https://biometrico-saas.movedancea.workers.dev";
 // nueva de los archivos — ver verificarActualizacion() al final de
 // este archivo. NO cambiar este valor a mano: lo actualiza el script
 // actualizar-versiones.mjs cada vez que algo cambia.
-const VERSION_APP = "20f7f7b64107";
+const VERSION_APP = "0beb8f2aa7b2";
 
 const el = (id) => document.getElementById(id);
 
@@ -18,6 +18,7 @@ const el = (id) => document.getElementById(id);
 // solo el token que devuelve duenoLogin.
 let sesion = null;
 let academiaEditandoId = null;
+let catalogoModulos = []; // [{ modulo, nombre, disponible }] — viene de duenoListarAcademias
 
 const MENSAJE_SESION_VENCIDA = "Tu sesión terminó. Vuelve a escribir tu clave para seguir.";
 
@@ -199,6 +200,7 @@ async function cargarAcademias() {
       el("listaAcademias").innerHTML = `<p class="lista-vacia">${escaparHtml(r.error || "No se pudo cargar la lista.")}</p>`;
       return;
     }
+    catalogoModulos = r.catalogoModulos || [];
     pintarAcademias(r.academias);
   } catch (e) {
     el("listaAcademias").innerHTML = '<p class="lista-vacia">No se pudo cargar la lista. Revisa tu conexión.</p>';
@@ -230,6 +232,7 @@ function pintarAcademias(academias) {
           &nbsp;·&nbsp; ${a.cantidadDispositivos} / ${a.limite_dispositivos} dispositivos
           &nbsp;·&nbsp; Q${Number(a.mensualidad || 0).toFixed(2)}/mes
           &nbsp;·&nbsp; <span class="etiqueta-estado ${a.pago_al_dia ? "activa" : "inactiva"}">${a.pago_al_dia ? "Al día" : "Debe mensualidad"}</span>
+          ${(a.modulos || []).length ? `<br/>🧩 ${escaparHtml(nombresModulos(a.modulos))}` : ""}
         </div>
       </div>
       <div class="acciones-item">
@@ -287,9 +290,62 @@ function abrirModalEditarAcademia(academia) {
     ? "Este mes está al día."
     : "Debe la mensualidad de este mes (o de un mes anterior).";
   el("mensajeErrorEditarAcademia").textContent = "";
+  pintarModulosAcademia(academia);
   el("modalEditarAcademia").hidden = false;
   cargarHistorialPagos(academia.id);
   cargarDispositivos(academia.id);
+}
+
+// ---------------------------------------------------------------
+// MÓDULOS (Fase 2) — solo para academias. Cada casilla se guarda al
+// instante con duenoActualizarModulos; los "próximamente" salen grises.
+// ---------------------------------------------------------------
+// Nombres en el orden del catálogo (no en el que vienen de la base).
+function nombresModulos(modulos) {
+  return catalogoModulos.filter((c) => modulos.includes(c.modulo)).map((c) => c.nombre).join(", ");
+}
+
+function pintarModulosAcademia(academia) {
+  const cont = el("listaModulosAcademia");
+  el("mensajeModulosAcademia").textContent = "";
+  if ((academia.tipo_cliente || "academia") !== "academia") {
+    cont.innerHTML = '<p class="ayuda" style="margin:0;">Los módulos son solo para academias.</p>';
+    return;
+  }
+  const activos = new Set(academia.modulos || []);
+  cont.innerHTML = catalogoModulos.map((m) => `
+    <label class="opcion-check"${m.disponible ? "" : ' style="opacity:.5; cursor:default;"'}>
+      <input type="checkbox" data-modulo="${escaparHtml(m.modulo)}" ${activos.has(m.modulo) ? "checked" : ""} ${m.disponible ? "" : "disabled"} />
+      ${escaparHtml(m.nombre)}${m.disponible ? "" : " — próximamente"}
+    </label>
+  `).join("");
+  cont.querySelectorAll("[data-modulo]").forEach((casilla) => {
+    casilla.addEventListener("change", () => cambiarModulo(academia, casilla));
+  });
+}
+
+async function cambiarModulo(academia, casilla) {
+  const modulo = casilla.dataset.modulo;
+  const activo = casilla.checked;
+  el("mensajeModulosAcademia").textContent = "";
+  el("mensajeErrorEditarAcademia").textContent = "";
+  casilla.disabled = true;
+  try {
+    const r = await llamar("duenoActualizarModulos", { academiaId: academia.id, modulos: { [modulo]: activo } });
+    if (!r.success) {
+      casilla.checked = !activo;
+      el("mensajeErrorEditarAcademia").textContent = r.error || "No se pudo cambiar el módulo.";
+      return;
+    }
+    academia.modulos = r.modulos || [];
+    el("mensajeModulosAcademia").textContent = `${activo ? "Activado" : "Apagado"}: ${nombresModulos([modulo])}.`;
+    cargarAcademias();
+  } catch (e) {
+    casilla.checked = !activo;
+    el("mensajeErrorEditarAcademia").textContent = "No se pudo conectar. Inténtalo de nuevo.";
+  } finally {
+    casilla.disabled = false;
+  }
 }
 
 // ---------------------------------------------------------------

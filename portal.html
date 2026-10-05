@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="biometrico-style.css?v=c8044c44" />
+<link rel="stylesheet" href="biometrico-style.css?v=c9b0995d" />
 <script>
 // Aplica el color de marca de la última academia que se vio en ESTE
 // dispositivo (guardado en localStorage) ANTES de que se pinte la
@@ -64,7 +64,7 @@
 <!-- ============ SIN LINK DE LA ACADEMIA ============ -->
 <div class="tarjeta-login" id="pantallaSinEnlace" hidden>
   <h1>👨‍👩‍👧‍👦 Portal</h1>
-  <p class="subtitulo">Aquí puedes ver el historial de asistencia de tu hijo y activar los avisos de cuándo llega a su clase.</p>
+  <p class="subtitulo">Aquí puedes ver el historial de asistencia de tu alumno y activar los avisos de cuándo llega a su clase.</p>
   <p class="subtitulo">Para entrar, abre el enlace que te compartió tu academia.</p>
 </div>
 
@@ -91,13 +91,13 @@
   <button class="enlace-texto" id="btnVolverPanelPortal" type="button" hidden>← Volver</button>
 </div>
 
-<!-- ============ OLVIDÉ MI CONTRASEÑA (paso 2 — llega del correo) ============ -->
+<!-- ============ OLVIDÉ MI PIN (paso 2 — llega del correo) ============ -->
 <div class="tarjeta-login" id="pantallaRestablecerPortal" hidden>
-  <h1>🔑 Pon tu contraseña nueva</h1>
+  <h1>🔑 Pon tu PIN nuevo</h1>
   <p class="subtitulo">Este enlace es de un solo uso y dura 30 minutos.</p>
-  <input type="password" id="inputRestablecerPortalClave" placeholder="Contraseña nueva" autocomplete="off" />
-  <input type="password" id="inputRestablecerPortalClaveConfirmar" placeholder="Confirmar contraseña nueva" autocomplete="off" />
-  <button class="btn" id="btnRestablecerPortalClave">Guardar contraseña nueva</button>
+  <input type="password" id="inputRestablecerPortalClave" placeholder="PIN nuevo" autocomplete="off" />
+  <input type="password" id="inputRestablecerPortalClaveConfirmar" placeholder="Confirmar PIN nuevo" autocomplete="off" />
+  <button class="btn" id="btnRestablecerPortalClave">Guardar PIN nuevo</button>
   <p class="mensaje-error" id="mensajeErrorRestablecerPortal"></p>
   <p class="mensaje-exito" id="mensajeExitoRestablecerPortal"></p>
 </div>
@@ -131,13 +131,28 @@
     <div class="grid-stats" style="margin-top:16px;" id="bloqueClasesEsteMes">
       <div class="stat-caja">
         <div class="stat-numero" id="statClasesEsteMes">—</div>
-        <div class="stat-etiqueta">Clases este mes</div>
+        <div class="stat-etiqueta" id="etiquetaStatClases">Clases este mes</div>
       </div>
+    </div>
+
+    <div id="bloqueClasesInscritas" hidden style="margin-top:14px;">
+      <div class="stat-etiqueta" style="text-align:left;">📚 Clases inscritas</div>
+      <ul id="listaClasesInscritas" style="margin:6px 0 0; padding-left:18px;"></ul>
     </div>
 
     <button class="btn" id="btnActivarPush" style="margin-top:16px;">🔔 Activar avisos de llegada</button>
     <p class="ayuda" id="textoEstadoPush" style="margin-top:8px;"></p>
     <p class="mensaje-error" id="mensajeErrorPush"></p>
+  </div>
+
+  <div class="panel" id="panelAvisosMes" hidden>
+    <h2>📢 Avisos del mes</h2>
+    <div class="lista-tarjetas" id="listaAvisosMes"></div>
+  </div>
+
+  <div class="panel" id="panelImportantes" hidden>
+    <h2>📌 Información importante</h2>
+    <div class="lista-tarjetas" id="listaImportantes"></div>
   </div>
 
   <div class="panel" id="panelHistorialMeses">
@@ -158,7 +173,7 @@
 
   <div class="panel">
     <h2>⚙️ Mi cuenta</h2>
-    <p class="ayuda">Este correo NO se usa para iniciar sesión — solo sirve para poder recuperar tu contraseña si algún día se te olvida.</p>
+    <p class="ayuda">Este correo NO se usa para iniciar sesión — solo sirve para poder recuperar el PIN si algún día se te olvida.</p>
     <div class="fila-formulario">
       <div>
         <label>Correo de recuperación</label>
@@ -171,18 +186,18 @@
 
     <hr style="border:none; border-top:1px solid var(--color-marca-suave2); margin:20px 0;" />
 
-    <p class="ayuda" style="margin-top:0;">Cambia tu contraseña de acceso a este portal.</p>
+    <p class="ayuda" style="margin-top:0;">Cambia el PIN para entrar a este portal.</p>
     <div class="fila-formulario">
       <div>
-        <label>Contraseña nueva</label>
-        <input type="password" id="inputClaveNuevaPortal" placeholder="Contraseña nueva" autocomplete="off" />
+        <label>PIN nuevo</label>
+        <input type="password" id="inputClaveNuevaPortal" placeholder="PIN nuevo" autocomplete="off" />
       </div>
       <div>
-        <label>Confirmar contraseña nueva</label>
-        <input type="password" id="inputClaveNuevaPortalConfirmar" placeholder="Confirmar contraseña nueva" autocomplete="off" />
+        <label>Confirmar PIN nuevo</label>
+        <input type="password" id="inputClaveNuevaPortalConfirmar" placeholder="Confirmar PIN nuevo" autocomplete="off" />
       </div>
     </div>
-    <button class="btn secundario" id="btnCambiarClavePortal" style="margin-top:6px;">Cambiar contraseña</button>
+    <button class="btn secundario" id="btnCambiarClavePortal" style="margin-top:6px;">Cambiar PIN</button>
     <p class="mensaje-error" id="mensajeErrorClavePortal"></p>
     <p class="mensaje-exito" id="mensajeExitoClavePortal"></p>
 
@@ -194,6 +209,7 @@
 
 </div>
 
-<script src="portal.js?v=20f7f7b64107"></script>
+<script src="bio-modulos-portal.js?v=0beb8f2aa7b2"></script>
+<script src="portal.js?v=0beb8f2aa7b2"></script>
 </body>
 </html>

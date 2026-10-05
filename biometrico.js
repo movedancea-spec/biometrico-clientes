@@ -14,7 +14,7 @@ const API_URL = "https://biometrico-saas.movedancea.workers.dev";
 // nueva de los archivos — ver verificarActualizacion() al final de
 // este archivo. NO cambiar este valor a mano: lo actualiza el script
 // actualizar-versiones.mjs cada vez que algo cambia.
-const VERSION_APP = "20f7f7b64107";
+const VERSION_APP = "0beb8f2aa7b2";
 
 const el = (id) => document.getElementById(id);
 
@@ -497,7 +497,7 @@ function mostrarBienvenida(r) {
   el("contenidoResultado").innerHTML = `
     <div class="kiosko-bienvenida">
       ${foto}
-      <div class="mensaje-bienvenida">¡Bienvenido, ${escaparHtml(r.alumna.nombre)}!</div>
+      <div class="mensaje-bienvenida">¡Hola, ${escaparHtml(r.alumna.nombre)}!</div>
       <div class="detalle-bienvenida">${sesion?.tipoCliente === "empresa" ? "Asistencia marcada." : `Asistencia marcada — ${r.clasesEsteMes} / ${r.clasesPorMes} clases este mes.`}</div>
     </div>
   `;

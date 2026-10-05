@@ -12,7 +12,7 @@ self.addEventListener("activate", (evento) => {
 });
 
 self.addEventListener("push", (evento) => {
-  let datos = { titulo: "Biométrico", cuerpo: "Tu hija tiene una novedad." };
+  let datos = { titulo: "Biométrico", cuerpo: "Hay una novedad en el portal." };
   try {
     if (evento.data) datos = evento.data.json();
   } catch (e) {

@@ -10,7 +10,7 @@ const API_URL = "https://biometrico-saas.movedancea.workers.dev";
 // nueva de los archivos — ver verificarActualizacion() al final de
 // este archivo. NO cambiar este valor a mano: lo actualiza el script
 // actualizar-versiones.mjs cada vez que algo cambia.
-const VERSION_APP = "20f7f7b64107";
+const VERSION_APP = "0beb8f2aa7b2";
 
 const el = (id) => document.getElementById(id);
 
@@ -296,6 +296,7 @@ function mostrarPanel() {
   ajustarInterfazSegunTipo();
   cargarMensualidad();
   iniciarActualizacionAutomatica();
+  modulosPanel.iniciar();
 }
 
 // El link trae el código público de ESTA academia (?a=...) para que a
@@ -380,6 +381,7 @@ function volverALogin(mensaje) {
   aplicarLogoEnHeader(null);
   el("modalAlumna").hidden = true;
   el("modalAsistencias").hidden = true;
+  modulosPanel.reiniciar();
   el("mensajeErrorLogin").textContent = mensaje || "";
 }
 
@@ -780,7 +782,7 @@ function pintarAlumnas(alumnas, cantidad, limite) {
       <div class="info-principal">
         <div class="nombre-item">#${a.codigo} — ${escaparHtml(a.nombre)}</div>
         <div class="detalle-item">
-          <span class="etiqueta-estado ${a.estado === "Activa" ? "activa" : "inactiva"}">${a.estado}</span>
+          <span class="etiqueta-estado ${a.estado === "Activa" ? "activa" : "inactiva"}">${a.estado === "Activa" ? "Activo" : "Inactivo"}</span>
           ${esEmpresa ? "" : `&nbsp;·&nbsp; ${a.clasesEsteMes} / ${a.clases_por_mes} clases este mes`}
         </div>
       </div>
@@ -820,7 +822,7 @@ el("btnCrearAlumna").addEventListener("click", async () => {
       return;
     }
     const textoClavePortal = r.claveInicialPortal
-      ? ` Su contraseña del Portal de Alumnos es ${r.claveInicialPortal} — cómpartesela a los papás (la pueden cambiar después).`
+      ? ` Su PIN del Portal de Alumnos es ${r.claveInicialPortal} — compártelo con los papás (lo pueden cambiar después).`
       : "";
     el("mensajeExitoCrear").textContent = r.advertenciaFoto
       ? `"${nombre}" agregada con el código #${r.codigo}.${textoClavePortal} ⚠️ ${r.advertenciaFoto}`
@@ -848,9 +850,9 @@ function abrirModalEditar(alumna) {
   el("mensajeErrorEditar").textContent = "";
 
   el("textoEstadoClavePortal").textContent = alumna.tieneClavePortal
-    ? "Ya tiene una contraseña asignada — si la perdió, puedes generarle una nueva (la anterior deja de servir)."
-    : "Todavía no tiene contraseña del Portal de Alumnos — genérale una para poder compartírsela a los papás.";
-  el("btnGenerarClavePortal").textContent = alumna.tieneClavePortal ? "Generar contraseña nueva" : "Generar contraseña";
+    ? "Ya tiene un PIN asignado — si lo perdió, puedes generarle uno nuevo (el anterior deja de servir)."
+    : "Todavía no tiene PIN del Portal de Alumnos — genérale uno para poder compartírselo a los papás.";
+  el("btnGenerarClavePortal").textContent = alumna.tieneClavePortal ? "Generar PIN nuevo" : "Generar PIN";
   el("mensajeClavePortalGenerada").textContent = "";
 
   const preview = el("fotoPreviewModal");
@@ -862,19 +864,20 @@ function abrirModalEditar(alumna) {
   }
 
   el("modalAlumna").hidden = false;
+  modulosPanel.abrirFicha(alumna);
 }
 
 el("btnGenerarClavePortal").addEventListener("click", async () => {
-  if (!window.confirm("¿Generar una contraseña nueva del Portal de Alumnos para este alumno? Si ya tenía una, deja de funcionar.")) return;
+  if (!window.confirm("¿Generar un PIN nuevo del Portal de Alumnos para este alumno? Si ya tenía uno, deja de funcionar.")) return;
 
   el("btnGenerarClavePortal").disabled = true;
   el("mensajeClavePortalGenerada").textContent = "";
   try {
     const r = await llamar("academiaGenerarClavePortalAlumna", { alumnaId: alumnaEditandoId });
     if (!r.success) { el("mensajeErrorEditar").textContent = r.error || "No se pudo generar."; return; }
-    el("mensajeClavePortalGenerada").textContent = `Contraseña nueva: ${r.clave} — cómpartesela a los papás.`;
-    el("textoEstadoClavePortal").textContent = "Ya tiene una contraseña asignada — si la perdió, puedes generarle una nueva (la anterior deja de servir).";
-    el("btnGenerarClavePortal").textContent = "Generar contraseña nueva";
+    el("mensajeClavePortalGenerada").textContent = `PIN nuevo: ${r.clave} — compártelo con los papás.`;
+    el("textoEstadoClavePortal").textContent = "Ya tiene un PIN asignado — si lo perdió, puedes generarle uno nuevo (el anterior deja de servir).";
+    el("btnGenerarClavePortal").textContent = "Generar PIN nuevo";
   } catch (e) {
     el("mensajeErrorEditar").textContent = "No se pudo conectar. Inténtalo de nuevo.";
   } finally {
@@ -903,6 +906,12 @@ el("btnGuardarEditar").addEventListener("click", async () => {
       ...(fotoBase64 ? { fotoBase64 } : {}),
     });
     if (!r.success) { el("mensajeErrorEditar").textContent = r.error || "No se pudo guardar."; return; }
+    const errorClases = await modulosPanel.guardarFicha(alumnaEditandoId);
+    if (errorClases) {
+      el("mensajeErrorEditar").textContent = "⚠️ Los demás cambios se guardaron, pero las clases no: " + errorClases;
+      cargarAlumnas();
+      return;
+    }
     if (r.advertenciaFoto) {
       // Se deja el modal abierto (en vez de cerrarlo de una vez) para
       // que se alcance a leer el aviso — si no, "se guarda pero no se
