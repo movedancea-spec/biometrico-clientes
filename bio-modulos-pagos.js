@@ -65,7 +65,7 @@ const modulosPagos = (() => {
   function avisosLlave() {
     if (!config.llaveConfigurada) return "";
     if (config.llaveEstado === "invalida" || config.llaveVencida) {
-      return '<p class="mensaje-error">❌ Llave inválida o vencida: las familias no pueden pagar en línea. Crea una llave nueva en Paggo y guárdala aquí.</p>';
+      return `<p class="mensaje-error">❌ Llave inválida o vencida: las familias no pueden pagar con tarjeta.${config.transferenciaActiva ? " Mientras tanto, solo ven la transferencia o depósito." : ""} Crea una llave nueva en Paggo y guárdala aquí.</p>`;
     }
     if (config.llaveVencePronto) {
       return `<p class="mensaje-error">⚠️ Tu llave de Paggo vence el ${c.escapar(c.fecha(config.llaveExpira))}. Crea una nueva en Paggo antes de esa fecha y guárdala aquí.</p>`;
@@ -74,20 +74,15 @@ const modulosPagos = (() => {
   }
 
   function pintarConfig() {
-    const modo = config.modo || "";
+    const tarjeta = !!config.tarjetaActiva;
+    const transferencia = !!config.transferenciaActiva;
     const cont = el("contenidoConfigPagos");
     cont.innerHTML = `
-      <div class="campo">
-        <label>Modo de pago</label>
-        <select id="selectModoPagos">
-          <option value=""${modo === "" ? " selected" : ""}>Apagado (no se ofrece pagar en el portal)</option>
-          <option value="paggo"${modo === "paggo" ? " selected" : ""}>Automático con Paggo (monto exacto, se registra solo)</option>
-          <option value="manual"${modo === "manual" ? " selected" : ""}>Manual: transferencia o depósito + comprobante</option>
-        </select>
-        <p class="ayuda" style="margin:4px 0 0;">Si tienes Paggo, usa el modo automático: el papá paga el monto exacto sin escribir nada y el pago se registra solo. El modo manual es para transferencia o depósito.</p>
-      </div>
-      <div id="bloqueModoManual"${modo === "manual" ? "" : " hidden"}>
-        <p class="ayuda">Al tocar "Pagar", la familia ve el monto exacto, estas cuentas y una referencia para escribir en su transferencia o boleta; después sube su comprobante y tú lo apruebas aquí abajo, en la bandeja. Puedes poner hasta 3 cuentas.</p>
+      <p class="ayuda">Puedes ofrecer una forma de pago, la otra o las dos. <strong>Si tienes Paggo, te recomendamos activar las dos:</strong> la tarjeta para quien quiere pagar al momento el monto exacto (se registra solo), y la transferencia para quien prefiere el banco.</p>
+      <label class="opcion-check"><input type="checkbox" id="checkTarjeta"${tarjeta ? " checked" : ""} /> <span><strong>💳 Pago con tarjeta (Paggo)</strong> — la familia paga el monto exacto en línea, sin escribir nada, y el pago se registra solo. Necesita tu llave de Paggo.</span></label>
+      <label class="opcion-check"><input type="checkbox" id="checkTransferencia"${transferencia ? " checked" : ""} /> <span><strong>🏦 Transferencia o depósito con comprobante</strong> — la familia ve tus cuentas y una referencia, paga en el banco y sube su comprobante; tú lo apruebas en la bandeja. Necesita al menos una cuenta.</span></label>
+      <div id="bloqueModoManual"${transferencia ? "" : " hidden"}>
+        <p class="ayuda">Al tocar "Pagar", la familia ve el monto exacto, estas cuentas y una referencia para escribir en su transferencia o boleta. Puedes poner hasta 3 cuentas.</p>
         ${[0, 1, 2].map((i) => htmlCuenta(i, (config.cuentas || [])[i] || {})).join("")}
         <div class="campo">
           <label>Instrucciones (opcional)</label>
@@ -97,15 +92,14 @@ const modulosPagos = (() => {
       <button class="btn" type="button" id="btnGuardarModoPagos">Guardar</button>
       <p class="mensaje-error" id="mensajeErrorConfigPagos"></p>
       <p class="mensaje-exito" id="mensajeExitoConfigPagos"></p>
-      <div id="bloqueModoPaggo"${modo === "paggo" ? "" : " hidden"}>${htmlPaggo()}</div>
+      <div id="bloqueModoPaggo"${tarjeta || config.llaveConfigurada ? "" : " hidden"}>${htmlPaggo()}</div>
     `;
-    el("selectModoPagos").addEventListener("change", (e) => {
-      el("bloqueModoManual").hidden = e.target.value !== "manual";
-      el("bloqueModoPaggo").hidden = e.target.value !== "paggo";
-    });
+    el("checkTransferencia").addEventListener("change", (e) => { el("bloqueModoManual").hidden = !e.target.checked; });
+    el("checkTarjeta").addEventListener("change", (e) => { if (e.target.checked) el("bloqueModoPaggo").hidden = false; });
     el("btnGuardarModoPagos").addEventListener("click", guardarModo);
     enlazarPaggo();
   }
+
 
   const TIPOS_CUENTA = ["Monetaria", "Ahorro", "Otra"];
 
@@ -174,7 +168,7 @@ const modulosPagos = (() => {
           <li>Pega la llave arriba y toca <strong>Guardar llave</strong> (se valida con Paggo en ese momento).</li>
           <li>En esa misma API key, configura el <strong>webhook</strong> con la URL del webhook de arriba. Suscribe <strong>al menos el evento de link pagado</strong> y, si aparecen, el de <strong>reverso</strong> y el de <strong>pago incorrecto</strong>.</li>
           <li>En la pestaña <strong>Redirección</strong> de Paggo, pega la URL de redirección. Así, al terminar de pagar, la familia vuelve al portal y el pago se verifica solo. Ojo: Paggo tiene <strong>una sola URL de redirección por cuenta</strong>; si ya la usas para otra cosa, igual funciona con el webhook y con el botón "Ya pagué" del portal.</li>
-          <li>Elige "Paggo automático" en el modo de pago y toca <strong>Guardar</strong>. Después toca <strong>Probar llave</strong>.</li>
+          <li>Marca "💳 Pago con tarjeta (Paggo)" arriba y toca <strong>Guardar</strong>. Después toca <strong>Probar llave</strong>.</li>
           <li>Cada pago se confirma consultando a Paggo, nunca solo con el aviso. Los que no cuadren (monto distinto, ya pagado, sin referencia o posible reverso) aparecen en la bandeja por revisar.</li>
           <li>Si crees que la URL del webhook se filtró, toca <strong>Regenerar URL</strong> y vuelve a pegarla en Paggo.</li>
         </ol>
@@ -220,17 +214,16 @@ const modulosPagos = (() => {
   }
 
   function guardarModo() {
-    const modo = el("selectModoPagos").value || null;
-    const datos = { modo };
-    if (modo === "manual") {
-      const { cuentas, error } = leerCuentas();
-      if (error) { el("mensajeErrorConfigPagos").textContent = error; return; }
-      if (!cuentas.length) { el("mensajeErrorConfigPagos").textContent = "Agrega al menos una cuenta para transferencia o depósito."; return; }
-      datos.cuentas = cuentas;
-      datos.instrucciones = el("inputInstruccionesPago").value.trim();
-    }
+    const datos = { tarjeta: el("checkTarjeta").checked, transferencia: el("checkTransferencia").checked };
+    const { cuentas, error } = leerCuentas();
+    if (error) { el("mensajeErrorConfigPagos").textContent = error; return; }
+    if (datos.transferencia && !cuentas.length) { el("mensajeErrorConfigPagos").textContent = "Para la transferencia o depósito, agrega al menos una cuenta."; return; }
+    if (datos.tarjeta && !config.llaveConfigurada) { el("mensajeErrorConfigPagos").textContent = "Para el pago con tarjeta, primero guarda tu llave de Paggo (más abajo)."; return; }
+    datos.cuentas = cuentas;
+    datos.instrucciones = el("inputInstruccionesPago").value.trim();
     accionConfig("academiaGuardarConfigPagos", datos, () => "Guardado.");
   }
+
 
   function guardarLlave() {
     const llave = el("inputLlavePaggo").value.trim();
@@ -266,6 +259,7 @@ const modulosPagos = (() => {
         return `
           <div class="tarjeta-item" style="display:block;">
             <div class="nombre-item">🧾 ${c.escapar(x.alumnaNombre || "")} — ${c.escapar(x.descripcion || x.referencia)}</div>
+            ${x.posiblePagoDoble ? `<p class="mensaje-error" style="margin:6px 0;">⚠️ ${c.escapar(x.posiblePagoDoble)}</p>` : ""}
             ${x.referenciaEsperada ? `<div class="detalle-item">Referencia esperada en la transferencia o boleta: <strong>${c.escapar(x.referenciaEsperada)}</strong></div>` : ""}
             <div class="detalle-item">Subido el ${c.escapar(c.fechaHora(x.creadoEn))}${x.montoReportadoCentavos ? ` · dice que pagó ${c.dinero(x.montoReportadoCentavos, moneda)}` : ""}${x.faltaCentavos !== null ? ` · falta ${c.dinero(x.faltaCentavos, moneda)}` : " · la referencia ya no existe"}
               · <a href="${c.escapar(x.archivoUrl || "#")}" target="_blank" rel="noopener">Ver ${x.tipoArchivo === "application/pdf" ? "PDF" : "foto"} →</a></div>
@@ -331,7 +325,7 @@ const modulosPagos = (() => {
     const cont = el("contenidoHistorialPagos");
     cont.innerHTML = '<p class="lista-vacia">Cargando...</p>';
     try {
-      if (config && config.modo === "paggo") await llamar("academiaVerificarPagosPendientes", {});
+      if (config && config.llaveConfigurada) await llamar("academiaVerificarPagosPendientes", {});
       const r = await llamar("academiaHistorialPagosEnLinea", {});
       if (!r.success) { cont.innerHTML = `<p class="mensaje-error">${c.escapar(r.error || "No se pudo cargar.")}</p>`; return; }
       const m = r.moneda || moneda;

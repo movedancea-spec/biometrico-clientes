@@ -1,6 +1,7 @@
 // ===============================================================
 // Módulo pagos en el Portal de Alumnos (Fase 4): botón "Pagar" junto a
 // cada mensualidad pendiente o parcial y cada cargo de traje con saldo.
+// Muestra las formas de pago activas (si hay una sola, va directo):
 //   - manual: muestra el monto exacto, las cuentas de la academia y una
 //     referencia para la transferencia o boleta, y permite subir el
 //     comprobante.
@@ -33,7 +34,9 @@ const modulosPortalPagos = (() => {
     return config;
   }
 
-  const disponible = () => !!config && ((config.modo === "manual" && config.pagoManualDisponible) || (config.modo === "paggo" && config.pagoEnLineaDisponible));
+  const tarjeta = () => !!config && !!config.tarjetaDisponible;
+  const transferencia = () => !!config && !!config.transferenciaDisponible;
+  const disponible = () => tarjeta() || transferencia();
 
   // HTML del botón "Pagar" (vacío si no aplica).
   function boton(referencia, faltaCentavos, moneda) {
@@ -51,9 +54,21 @@ const modulosPortalPagos = (() => {
     contenedor.querySelectorAll("[data-pagar-ref]").forEach((b) => b.addEventListener("click", () => {
       const referencia = b.dataset.pagarRef;
       const zona = contenedor.querySelector(`[data-zona-pago="${CSS.escape(referencia)}"]`);
-      if (config.modo === "manual") pagarManual(zona, entrada, referencia, moneda);
+      if (tarjeta() && transferencia()) elegirForma(zona, entrada, referencia, moneda, recargar);
+      else if (transferencia()) pagarManual(zona, entrada, referencia, moneda);
       else pagarEnLinea(zona, entrada, referencia, recargar);
     }));
+  }
+
+  // Las dos formas activas: se elige una.
+  function elegirForma(zona, entrada, referencia, moneda, recargar) {
+    zona.innerHTML = `
+      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;">
+        <button class="btn chico" type="button" data-forma="tarjeta" style="width:auto;">💳 Pagar con tarjeta</button>
+        <button class="btn secundario chico" type="button" data-forma="transferencia" style="width:auto;">🏦 Transferencia o depósito</button>
+      </div>`;
+    zona.querySelector('[data-forma="tarjeta"]').addEventListener("click", () => pagarEnLinea(zona, entrada, referencia, recargar));
+    zona.querySelector('[data-forma="transferencia"]').addEventListener("click", () => pagarManual(zona, entrada, referencia, moneda));
   }
 
   // ---- manual ----
@@ -178,7 +193,7 @@ const modulosPortalPagos = (() => {
   // alumno y quita el parámetro para que un refresh no lo repita.
   async function verificarAlVolver(entrada, recargar) {
     const params = new URLSearchParams(location.search);
-    if (verificadoAlVolver || params.get("pago") !== "volver" || !config || config.modo !== "paggo") return;
+    if (verificadoAlVolver || params.get("pago") !== "volver" || !tarjeta()) return;
     verificadoAlVolver = true;
     params.delete("pago");
     history.replaceState(null, "", `${location.pathname}${params.toString() ? `?${params}` : ""}${location.hash}`);
@@ -190,13 +205,11 @@ const modulosPortalPagos = (() => {
 
   // ---- Mis pagos ----
   async function cargarMisPagos(entrada, moneda) {
-    if (!config || !config.modo) { el("panelPagosPortal").hidden = true; return; }
+    if (!transferencia()) { el("panelPagosPortal").hidden = true; return; }
     try {
-      const r = config.modo === "manual"
-        ? await llamar("portalMisComprobantes", {}, entrada)
-        : null;
+      const r = await llamar("portalMisComprobantes", {}, entrada);
       if (alumnaActivaId !== entrada.alumnaId) return;
-      if (config.modo === "manual") {
+      {
         if (!r || !r.success) return;
         const textoEstado = { por_revisar: ["Por revisar", "parcial"], aprobado: ["Aprobado", "activa"], rechazado: ["Rechazado", "inactiva"] };
         el("contenidoPagosPortal").innerHTML = r.comprobantes.length
@@ -211,8 +224,6 @@ const modulosPortalPagos = (() => {
             }).join("")
           : '<p class="lista-vacia">Todavía no has subido comprobantes.</p>';
         el("panelPagosPortal").hidden = false;
-      } else {
-        el("panelPagosPortal").hidden = true;
       }
     } catch (e) { /* sin conexión: se queda como estaba */ }
   }
