@@ -10,7 +10,7 @@ const API_URL = "https://biometrico-saas.movedancea.workers.dev";
 // nueva de los archivos — ver verificarActualizacion() al final de
 // este archivo. NO cambiar este valor a mano: lo actualiza el script
 // actualizar-versiones.mjs cada vez que algo cambia.
-const VERSION_APP = "f8af7d687de0";
+const VERSION_APP = "365829a77e72";
 
 const el = (id) => document.getElementById(id);
 
@@ -228,7 +228,7 @@ function pintarAcademias(academias) {
         <span class="etiqueta-estado ${a.tipo_cliente === "empresa" ? "inactiva" : "activa"}" style="margin-left:6px;">${a.tipo_cliente === "empresa" ? "🏢 Empresa" : "💃 Academia"}</span>
         <div class="detalle-item">
           <span class="etiqueta-estado ${a.activo ? "activa" : "inactiva"}">${a.activo ? "Activa" : "Desactivada"}</span>
-          &nbsp;·&nbsp; ${a.cantidadAlumnas} / ${a.limite_alumnas} ${a.tipo_cliente === "empresa" ? "empleados" : "alumnos"}
+          &nbsp;·&nbsp; ${a.cantidadAlumnas} / ${a.limite_alumnas} ${bioTextos.para(a.tipo_cliente).personas}
           &nbsp;·&nbsp; ${a.cantidadDispositivos} / ${a.limite_dispositivos} dispositivos
           &nbsp;·&nbsp; Q${Number(a.mensualidad || 0).toFixed(2)}/mes
           &nbsp;·&nbsp; <span class="etiqueta-estado ${a.pago_al_dia ? "activa" : "inactiva"}">${a.pago_al_dia ? "Al día" : "Debe mensualidad"}</span>
@@ -275,10 +275,12 @@ async function alternarActivo(academia) {
 // EDITAR / BORRAR ACADEMIA (modal)
 // ---------------------------------------------------------------
 let academiaEditandoNombre = "";
+let academiaEditandoTipo = "academia";
 
 function abrirModalEditarAcademia(academia) {
   academiaEditandoId = academia.id;
   academiaEditandoNombre = academia.nombre;
+  academiaEditandoTipo = academia.tipo_cliente || "academia";
   el("inputEditarNombreAcademia").value = academia.nombre;
   el("inputEditarClaveAcademia").value = "";
   el("inputEditarLimite").value = academia.limite_alumnas;
@@ -309,7 +311,7 @@ function pintarModulosAcademia(academia) {
   const cont = el("listaModulosAcademia");
   el("mensajeModulosAcademia").textContent = "";
   if ((academia.tipo_cliente || "academia") !== "academia") {
-    cont.innerHTML = '<p class="ayuda" style="margin:0;">Los módulos son solo para academias.</p>';
+    cont.innerHTML = '<p class="ayuda" style="margin:0;">Los módulos no están disponibles para empresas.</p>';
     return;
   }
   const activos = new Set(academia.modulos || []);
@@ -492,7 +494,7 @@ el("btnGuardarEditarAcademia").addEventListener("click", async () => {
   el("mensajeErrorEditarAcademia").textContent = "";
 
   if (!nombre) { el("mensajeErrorEditarAcademia").textContent = "El nombre no puede quedar vacío."; return; }
-  if (!nuevoLimite || nuevoLimite < 1) { el("mensajeErrorEditarAcademia").textContent = "Escribe un límite de alumnos válido."; return; }
+  if (!nuevoLimite || nuevoLimite < 1) { el("mensajeErrorEditarAcademia").textContent = "Escribe un límite de usuarios válido."; return; }
   if (!nuevoLimiteDispositivos || nuevoLimiteDispositivos < 1) { el("mensajeErrorEditarAcademia").textContent = "Escribe un límite de dispositivos válido."; return; }
   if (claveNueva && claveNueva.length < 4) { el("mensajeErrorEditarAcademia").textContent = "La contraseña nueva debe tener al menos 4 caracteres."; return; }
   if (mensualidad < 0) { el("mensajeErrorEditarAcademia").textContent = "La mensualidad no puede ser negativa."; return; }
@@ -520,7 +522,7 @@ el("btnGuardarEditarAcademia").addEventListener("click", async () => {
 });
 
 el("btnBorrarAcademia").addEventListener("click", async () => {
-  if (!window.confirm(`¿Borrar por completo a "${academiaEditandoNombre}"? Se elimina para siempre junto con sus alumnos, su historial de asistencias, sus pagos y sus fotos — después SÍ vas a poder crear otro cliente con ese mismo nombre. Esto no se puede deshacer.`)) return;
+  if (!window.confirm(`¿Borrar por completo a "${academiaEditandoNombre}"? Se elimina para siempre junto con sus ${bioTextos.para(academiaEditandoTipo).personas}, su historial de asistencias, sus pagos y sus fotos — después SÍ vas a poder crear otro cliente con ese mismo nombre. Esto no se puede deshacer.`)) return;
 
   try {
     const r = await llamar("duenoBorrarAcademia", { academiaId: academiaEditandoId });

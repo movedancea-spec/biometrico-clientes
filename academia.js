@@ -10,7 +10,7 @@ const API_URL = "https://biometrico-saas.movedancea.workers.dev";
 // nueva de los archivos — ver verificarActualizacion() al final de
 // este archivo. NO cambiar este valor a mano: lo actualiza el script
 // actualizar-versiones.mjs cada vez que algo cambia.
-const VERSION_APP = "f8af7d687de0";
+const VERSION_APP = "365829a77e72";
 
 const el = (id) => document.getElementById(id);
 
@@ -262,24 +262,16 @@ async function pedirToken(nombre, clave) {
   return { status: resp.status, r: await resp.json() };
 }
 
+// Textos que cambian según el tipo de cliente (ver bio-textos.js).
+const textos = () => bioTextos.para(sesion?.tipoCliente);
+
 function ajustarInterfazSegunTipo() {
   const esEmpresa = sesion?.tipoCliente === "empresa";
   el("campoClasesAlumno").hidden = esEmpresa;
+  el("campoEditarClases").hidden = esEmpresa;
   el("campoHoraEntradaEmpresa").hidden = !esEmpresa;
   el("campoHoraSalidaEmpresa").hidden = !esEmpresa;
-  document.querySelectorAll("h2").forEach((h) => {
-    if (h.textContent.includes("Agregar alumno")) {
-      h.innerHTML = h.innerHTML.replace("Agregar alumno", esEmpresa ? "Agregar empleado" : "Agregar alumno");
-    }
-    if (h.textContent.includes("Alumnos")) {
-      h.innerHTML = h.innerHTML.replace("Alumnos", esEmpresa ? "Empleados" : "Alumnos");
-    }
-  });
-  el("inputNuevaAlumnaNombre").placeholder = esEmpresa ? "Nombre del empleado" : "Nombre del alumno";
-  el("btnCrearAlumna").textContent = esEmpresa ? "Agregar empleado" : "Agregar alumno";
-  el("etiquetaPortalPapas").textContent = esEmpresa ? "" : "(para los papás)";
-  el("etiquetaPortalTipo1").textContent = esEmpresa ? "Empleados" : "Alumnos";
-  el("etiquetaPortalTipo2").textContent = esEmpresa ? "los empleados" : "los papás";
+  bioTextos.aplicar(document, sesion?.tipoCliente);
 }
 
 function mostrarPanel() {
@@ -755,7 +747,7 @@ el("btnSubirComprobante").addEventListener("click", async () => {
 
 function pintarAlumnas(alumnas, cantidad, limite) {
   const esEmpresa = sesion?.tipoCliente === "empresa";
-  const etiqueta = esEmpresa ? "empleados" : "alumnos";
+  const etiqueta = textos().personas;
   el("infoLimiteAlumnas").textContent = `${cantidad} / ${limite} ${etiqueta}`;
   el("ayudaCantidadAlumnas").textContent =
     cantidad >= limite
@@ -766,7 +758,7 @@ function pintarAlumnas(alumnas, cantidad, limite) {
 
   const cont = el("listaAlumnas");
   if (!alumnas.length) {
-    cont.innerHTML = '<p class="lista-vacia">Todavía no has agregado ningún alumno.</p>';
+    cont.innerHTML = `<p class="lista-vacia">${escaparHtml(textos().panelListaVacia)}</p>`;
     return;
   }
 
@@ -811,7 +803,7 @@ el("btnCrearAlumna").addEventListener("click", async () => {
   el("mensajeErrorCrear").textContent = "";
   el("mensajeExitoCrear").textContent = "";
 
-  if (!nombre) { el("mensajeErrorCrear").textContent = "Escribe el nombre del alumno."; return; }
+  if (!nombre) { el("mensajeErrorCrear").textContent = textos().panelErrorNombre; return; }
 
   // Módulo mensualidades: el campo solo se ve si está activo. Vacío = el
   // Worker usa la mensualidad sugerida de la academia.
@@ -831,7 +823,7 @@ el("btnCrearAlumna").addEventListener("click", async () => {
       return;
     }
     const textoClavePortal = r.claveInicialPortal
-      ? ` Su PIN del Portal de Alumnos es ${r.claveInicialPortal} — compártelo con los papás (lo pueden cambiar después).`
+      ? textos().pinAlCrear(r.claveInicialPortal)
       : "";
     el("mensajeExitoCrear").textContent = r.advertenciaFoto
       ? `"${nombre}" agregada con el código #${r.codigo}.${textoClavePortal} ⚠️ ${r.advertenciaFoto}`
@@ -860,7 +852,7 @@ function abrirModalEditar(alumna) {
 
   el("textoEstadoClavePortal").textContent = alumna.tieneClavePortal
     ? "Ya tiene un PIN asignado — si lo perdió, puedes generarle uno nuevo (el anterior deja de servir)."
-    : "Todavía no tiene PIN del Portal de Alumnos — genérale uno para poder compartírselo a los papás.";
+    : textos().pinSinAsignar;
   el("btnGenerarClavePortal").textContent = alumna.tieneClavePortal ? "Generar PIN nuevo" : "Generar PIN";
   el("mensajeClavePortalGenerada").textContent = "";
 
@@ -877,14 +869,14 @@ function abrirModalEditar(alumna) {
 }
 
 el("btnGenerarClavePortal").addEventListener("click", async () => {
-  if (!window.confirm("¿Generar un PIN nuevo del Portal de Alumnos para este alumno? Si ya tenía uno, deja de funcionar.")) return;
+  if (!window.confirm(textos().pinConfirmar)) return;
 
   el("btnGenerarClavePortal").disabled = true;
   el("mensajeClavePortalGenerada").textContent = "";
   try {
     const r = await llamar("academiaGenerarClavePortalAlumna", { alumnaId: alumnaEditandoId });
     if (!r.success) { el("mensajeErrorEditar").textContent = r.error || "No se pudo generar."; return; }
-    el("mensajeClavePortalGenerada").textContent = `PIN nuevo: ${r.clave} — compártelo con los papás.`;
+    el("mensajeClavePortalGenerada").textContent = textos().pinNuevo(r.clave);
     el("textoEstadoClavePortal").textContent = "Ya tiene un PIN asignado — si lo perdió, puedes generarle uno nuevo (el anterior deja de servir).";
     el("btnGenerarClavePortal").textContent = "Generar PIN nuevo";
   } catch (e) {
@@ -1027,7 +1019,7 @@ async function cargarAsistenciasAlumna() {
 }
 
 async function borrarAsistencia(asistenciaId) {
-  if (!window.confirm("¿Borrar esta marcación? Se quita de \"clases este mes\" y del historial que ve el papá en su portal. Esto no se puede deshacer.")) return;
+  if (!window.confirm(textos().confirmarBorrarAsistencia)) return;
 
   el("mensajeErrorAsistencias").textContent = "";
   try {

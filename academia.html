@@ -64,17 +64,17 @@
 
   <div class="panel aviso-kiosko">
     <h2>📟 ¿Buscas la pantalla para marcar entradas?</h2>
-    <p class="ayuda" style="margin-bottom:12px;">Esta página es solo para administrar alumnos (agregar, editar, borrar). Para la pantalla de la tablet donde los alumnos ingresan su código, se muestra su foto y un mensaje de bienvenida, usa <strong>biometrico.html</strong> — esa la dejas abierta en la entrada, aparte de esta.</p>
+    <p class="ayuda" style="margin-bottom:12px;" data-texto-html="panelAyudaKiosko">Esta página es solo para administrar alumnos (agregar, editar, borrar). Para la pantalla de la tablet donde los alumnos ingresan su código, se muestra su foto y un mensaje de bienvenida, usa <strong>biometrico.html</strong> — esa la dejas abierta en la entrada, aparte de esta.</p>
     <a class="btn secundario chico" href="biometrico.html" target="_blank" rel="noopener">Abrir pantalla de código (biométrico) →</a>
   </div>
 
   <div class="panel aviso-kiosko">
-    <h2>👨‍👩‍👧‍👦 Portal de Alumnos <span id="etiquetaPortalPapas">(para los papás)</span></h2>
-    <p class="ayuda" style="margin-bottom:12px;" id="textoAyudaPortal">Compárteles este enlace a los papás (por WhatsApp, por ejemplo) — ya abre directo en TU cuenta, sin que tengan que buscarla ni escribir su nombre. Ahí escriben el código del alumno y su PIN del portal. Cada alumno tiene su propio PIN (lo generas desde "Editar" en su tarjeta, más abajo) — ese es el que le compartes a la familia.</p>
+    <h2 data-texto="panelPortalTitulo">👨‍👩‍👧‍👦 Portal de Alumnos (para los papás)</h2>
+    <p class="ayuda" style="margin-bottom:12px;" id="textoAyudaPortal" data-texto="panelPortalAyuda">Compárteles este enlace a los papás (por WhatsApp, por ejemplo) — ya abre directo en TU cuenta, sin que tengan que buscarla ni escribir su nombre. Ahí escriben el código del alumno y su PIN del portal. Cada alumno tiene su propio PIN (lo generas desde "Editar" en su tarjeta, más abajo) — ese es el que le compartes a la familia.</p>
     <input type="text" id="inputLinkPortal" readonly aria-label="Enlace del portal para compartir" style="margin-bottom:8px;" />
     <div style="display:flex; gap:8px; flex-wrap:wrap;">
-      <a class="btn secundario chico" id="linkPortalAlumnos" href="portal.html" target="_blank" rel="noopener">Abrir el Portal de <span id="etiquetaPortalTipo1">Alumnos</span> →</a>
-      <button class="btn secundario chico" id="btnCopiarLinkPortal" type="button">📋 Copiar enlace para <span id="etiquetaPortalTipo2">los papás</span></button>
+      <a class="btn secundario chico" id="linkPortalAlumnos" href="portal.html" target="_blank" rel="noopener" data-texto="panelPortalAbrir">Abrir el Portal de Alumnos →</a>
+      <button class="btn secundario chico" id="btnCopiarLinkPortal" type="button" data-texto="panelPortalCopiar">📋 Copiar enlace para los papás</button>
     </div>
     <p class="mensaje-exito" id="mensajeCopiadoLinkPortal" style="margin-top:6px;"></p>
   </div>
@@ -161,12 +161,12 @@
 
   <!-- -------- Agregar alumno -------- -->
   <div class="panel">
-    <h2>➕ Agregar alumno</h2>
-    <p class="ayuda">El código se asigna solo, al azar (4 dígitos) — no se puede escoger, no sigue un orden, y no se repite entre alumnos de tu cuenta.</p>
+    <h2 data-texto="panelAgregarTitulo">➕ Agregar alumno</h2>
+    <p class="ayuda" data-texto="panelAgregarAyuda">El código se asigna solo, al azar (4 dígitos) — no se puede escoger, no sigue un orden, y no se repite entre alumnos de tu cuenta.</p>
     <div class="fila-formulario">
       <div>
         <label>Nombre completo</label>
-        <input type="text" id="inputNuevaAlumnaNombre" placeholder="Nombre del alumno" />
+        <input type="text" id="inputNuevaAlumnaNombre" placeholder="Nombre del alumno" data-texto-placeholder="panelNombrePlaceholder" />
       </div>
       <div id="campoClasesAlumno">
         <label>Clases al mes</label>
@@ -189,7 +189,7 @@
         <input type="file" id="inputNuevaAlumnaFoto" accept="image/*" />
       </div>
     </div>
-    <button class="btn" id="btnCrearAlumna" style="margin-top:6px;">Agregar alumno</button>
+    <button class="btn" id="btnCrearAlumna" style="margin-top:6px;" data-texto="panelAgregarBoton">Agregar alumno</button>
     <p class="mensaje-error" id="mensajeErrorCrear"></p>
     <p class="mensaje-exito" id="mensajeExitoCrear"></p>
   </div>
@@ -199,10 +199,10 @@
 
   <!-- -------- Lista de alumnos -------- -->
   <div class="panel">
-    <h2>🧑‍🎓 Alumnos</h2>
+    <h2 data-texto="panelListaTitulo">🧑‍🎓 Alumnos</h2>
     <p class="ayuda" id="ayudaCantidadAlumnas"></p>
     <div class="lista-tarjetas" id="listaAlumnas">
-      <p class="lista-vacia">Cargando alumnos...</p>
+      <p class="lista-vacia" data-texto="panelListaCargando">Cargando alumnos...</p>
     </div>
   </div>
 
@@ -211,13 +211,13 @@
 <!-- ============ MODAL: editar alumno ============ -->
 <div class="fondo-modal" id="modalAlumna" hidden>
   <div class="caja-modal">
-    <h3>Editar alumno</h3>
+    <h3 data-texto="modalEditarTitulo">Editar alumno</h3>
     <img class="foto-preview" id="fotoPreviewModal" src="" alt="" hidden />
     <div class="campo">
       <label>Nombre</label>
       <input type="text" id="inputEditarNombre" />
     </div>
-    <div class="campo">
+    <div class="campo" id="campoEditarClases">
       <label id="etiquetaEditarClases">Clases al mes</label>
       <input type="number" id="inputEditarClases" min="1" />
     </div>
@@ -238,7 +238,7 @@
     <hr style="border:none; border-top:1px solid var(--color-marca-suave2); margin:16px 0;" />
 
     <div class="campo">
-      <label>👨‍👩‍👧‍👦 PIN del Portal de Alumnos</label>
+      <label data-texto="modalPinTitulo">👨‍👩‍👧‍👦 PIN del Portal de Alumnos</label>
       <p class="ayuda" id="textoEstadoClavePortal" style="margin:2px 0 8px;"></p>
       <button class="btn secundario chico" id="btnGenerarClavePortal" type="button">Generar PIN nuevo</button>
       <p class="mensaje-exito" id="mensajeClavePortalGenerada" style="margin-top:8px;"></p>
@@ -249,7 +249,7 @@
       <button class="btn secundario" id="btnCancelarEditar">Cancelar</button>
       <button class="btn" id="btnGuardarEditar">Guardar</button>
     </div>
-    <button class="btn peligro" id="btnBorrarAlumna" style="margin-top:10px;">🗑️ Borrar alumno</button>
+    <button class="btn peligro" id="btnBorrarAlumna" style="margin-top:10px;" data-texto="modalBorrar">🗑️ Borrar alumno</button>
   </div>
 </div>
 
@@ -257,7 +257,7 @@
 <div class="fondo-modal" id="modalAsistencias" hidden>
   <div class="caja-modal">
     <h3>📋 Asistencias de <span id="nombreAlumnaAsistencias">—</span></h3>
-    <p class="ayuda">Si se marcó doble por error, o se marcó al alumno equivocado, aquí puedes borrar esa marcación puntual — se quita tanto de "clases este mes" como del historial que ve el papá en su portal.</p>
+    <p class="ayuda" data-texto="modalAsistenciasAyuda">Si se marcó doble por error, o se marcó al alumno equivocado, aquí puedes borrar esa marcación puntual — se quita tanto de "clases este mes" como del historial que ve el papá en su portal.</p>
     <div class="lista-tarjetas" id="listaAsistenciasAlumna">
       <p class="lista-vacia">Cargando...</p>
     </div>
@@ -268,12 +268,13 @@
   </div>
 </div>
 
-<script src="bio-modulos-comun.js?v=f8af7d687de0"></script>
-<script src="bio-modulos-show.js?v=f8af7d687de0"></script>
-<script src="bio-modulos-trajes.js?v=f8af7d687de0"></script>
-<script src="bio-modulos-mensualidades.js?v=f8af7d687de0"></script>
-<script src="bio-modulos-pagos.js?v=f8af7d687de0"></script>
-<script src="bio-modulos-panel.js?v=f8af7d687de0"></script>
-<script src="academia.js?v=f8af7d687de0"></script>
+<script src="bio-textos.js?v=365829a77e72"></script>
+<script src="bio-modulos-comun.js?v=365829a77e72"></script>
+<script src="bio-modulos-show.js?v=365829a77e72"></script>
+<script src="bio-modulos-trajes.js?v=365829a77e72"></script>
+<script src="bio-modulos-mensualidades.js?v=365829a77e72"></script>
+<script src="bio-modulos-pagos.js?v=365829a77e72"></script>
+<script src="bio-modulos-panel.js?v=365829a77e72"></script>
+<script src="academia.js?v=365829a77e72"></script>
 </body>
 </html>

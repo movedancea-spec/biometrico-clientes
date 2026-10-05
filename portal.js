@@ -10,7 +10,7 @@ const API_URL = "https://biometrico-saas.movedancea.workers.dev";
 // nueva de los archivos — ver verificarActualizacion() al final de
 // este archivo. NO cambiar este valor a mano: lo actualiza el script
 // actualizar-versiones.mjs cada vez que algo cambia.
-const VERSION_APP = "f8af7d687de0";
+const VERSION_APP = "365829a77e72";
 
 const el = (id) => document.getElementById(id);
 
@@ -327,18 +327,27 @@ function mostrarLogin(academia, mensaje) {
 }
 
 // marca = { nombre, colorMarca, logoKey, tipoCliente } o null (por defecto).
+// Tipo de cliente de la pantalla de login (null mientras no se sabe: los
+// textos se quedan neutros). Ver bio-textos.js.
+let tipoLogin = null;
+
 function pintarMarcaLogin(marca) {
   aplicarMarca(marca?.colorMarca || null);
   aplicarLogoEnHeader(marca?.logoKey || null);
   const logo = el("logoLoginPortal");
   if (marca?.logoKey) { logo.src = urlFoto(marca.logoKey); logo.hidden = false; }
   else { logo.hidden = true; }
-  el("tituloLoginPortal").textContent = marca?.nombre ? marca.nombre : "🧒 Entrar al portal";
-  const esEmpresa = marca?.tipoCliente === "empresa";
-  el("subtituloLoginPortal").textContent = marca?.nombre
-    ? `Escribe el código ${esEmpresa ? "del empleado" : "del alumno"} y su PIN del portal.`
-    : "Escribe el código del alumno y su PIN del portal.";
+  tipoLogin = marca?.tipoCliente || null;
+  const t = bioTextos.para(tipoLogin);
+  if (tipoLogin) {
+    bioTextos.aplicar(el("pantallaLoginPortal"), tipoLogin);
+    document.title = t.tituloPortal;
+  }
+  el("tituloLoginPortal").textContent = marca?.nombre ? marca.nombre : (tipoLogin ? t.portalTituloLogin : "Entrar al portal");
+  el("subtituloLoginPortal").textContent = tipoLogin ? t.portalSubtituloLogin : "Escribe el código y el PIN del portal.";
 }
+
+const textoErrorCodigo = () => (tipoLogin ? bioTextos.para(tipoLogin).portalErrorCodigo : "Escribe el código.");
 
 // En silencio: si falla (sin internet, academia desactivada...), se
 // queda la marca que ya se pintó.
@@ -376,7 +385,7 @@ async function entrarPortal() {
   const codigo = Number(el("inputPortalCodigo").value.trim());
   const clave = el("inputPortalClave").value.trim();
   el("mensajeErrorEntrarPortal").textContent = "";
-  if (!codigo) { el("mensajeErrorEntrarPortal").textContent = "Escribe el código del alumno."; return; }
+  if (!codigo) { el("mensajeErrorEntrarPortal").textContent = textoErrorCodigo(); return; }
   if (!clave) { el("mensajeErrorEntrarPortal").textContent = "Escribe el PIN."; return; }
 
   el("btnEntrarPortal").disabled = true;
@@ -436,7 +445,7 @@ el("btnEnviarOlvidePin").addEventListener("click", async () => {
   const email = el("inputOlvideEmail").value.trim();
   el("mensajeErrorOlvidePin").textContent = "";
   el("mensajeExitoOlvidePin").textContent = "";
-  if (!codigo) { el("mensajeErrorOlvidePin").textContent = "Escribe el código del alumno."; return; }
+  if (!codigo) { el("mensajeErrorOlvidePin").textContent = textoErrorCodigo(); return; }
   if (!email) { el("mensajeErrorOlvidePin").textContent = "Escribe tu correo."; return; }
 
   el("btnEnviarOlvidePin").disabled = true;
@@ -559,7 +568,7 @@ async function seleccionarAlumna(alumnaId) {
 
   aplicarMarca(entrada.colorMarca);
   aplicarLogoEnHeader(entrada.logoKey);
-  el("tituloPortalAcademia").textContent = `👨‍👩‍👧 ${entrada.academiaNombre}`;
+  el("tituloPortalAcademia").textContent = `${bioTextos.para(entrada.tipoCliente).portalTituloPanel} ${entrada.academiaNombre}`;
   el("nombreAlumnaPortal").textContent = entrada.nombre;
   el("codigoAlumnaPortal").textContent = `#${entrada.codigo}`;
   pintarFotoAlumna(urlFotoAlumna(entrada));
@@ -588,7 +597,7 @@ async function seleccionarAlumna(alumnaId) {
 
     aplicarMarca(entrada.colorMarca);
     aplicarLogoEnHeader(entrada.logoKey);
-    el("tituloPortalAcademia").textContent = `👨‍👩‍👧 ${entrada.academiaNombre}`;
+    el("tituloPortalAcademia").textContent = `${bioTextos.para(entrada.tipoCliente).portalTituloPanel} ${entrada.academiaNombre}`;
     el("nombreAlumnaPortal").textContent = entrada.nombre;
     el("codigoAlumnaPortal").textContent = `#${entrada.codigo}`;
     pintarFotoAlumna(urlFotoAlumna(entrada));
@@ -610,12 +619,8 @@ function ajustarInterfazPortalSegunTipo() {
   if (bloqueClases) bloqueClases.hidden = esEmpresa;
   const panelHistorial = el("panelHistorialMeses");
   if (panelHistorial) panelHistorial.hidden = esEmpresa;
-  const etiquetaHistorialEntradas = el("etiquetaHistorialEntradas");
-  if (etiquetaHistorialEntradas) etiquetaHistorialEntradas.textContent = esEmpresa ? "" : "a la academia";
-  const etiquetaQuitar = el("etiquetaQuitarAlumno");
-  if (etiquetaQuitar) etiquetaQuitar.textContent = esEmpresa ? "este empleado" : "este alumno";
-  const btnAgregar = el("btnAgregarOtraAlumna");
-  if (btnAgregar) btnAgregar.textContent = esEmpresa ? "+ Agregar otro empleado" : "+ Agregar otro alumno";
+  bioTextos.aplicar(el("pantallaPortalPanel"), alumna?.tipoCliente);
+  document.title = bioTextos.para(alumna?.tipoCliente).tituloPortal;
 }
 
 function pintarFotoAlumna(url) {
@@ -775,7 +780,7 @@ function actualizarBotonPush() {
   const boton = el("btnActivarPush");
   if (activas.has(alumnaActivaId)) {
     boton.textContent = "🔕 Desactivar avisos de llegada";
-    el("textoEstadoPush").textContent = "Los avisos están ACTIVADOS para este alumno en este dispositivo.";
+    el("textoEstadoPush").textContent = bioTextos.para(alumnaActiva()?.tipoCliente).portalAvisosActivos;
   } else {
     boton.textContent = "🔔 Activar avisos de llegada";
     el("textoEstadoPush").textContent = "Actívalos para que te avisemos apenas marque su entrada.";
@@ -933,7 +938,7 @@ async function quitarAlumnaDelDispositivo(alumnaId) {
 // dispositivo (para un teléfono prestado o que se va a cambiar).
 el("btnCerrarSesionPortal").addEventListener("click", async () => {
   const texto = alumnasGuardadas.length > 1
-    ? "¿Cerrar sesión en este dispositivo? Se quitan todos los alumnos guardados aquí; para volver a verlos vas a necesitar su código y su PIN."
+    ? bioTextos.para((alumnaActiva() || alumnasGuardadas[0])?.tipoCliente).portalConfirmarCerrarVarios
     : "¿Cerrar sesión en este dispositivo? Para volver a entrar vas a necesitar el código y el PIN.";
   if (!window.confirm(texto)) return;
 

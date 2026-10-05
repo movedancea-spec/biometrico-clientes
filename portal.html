@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
 <meta http-equiv="Pragma" content="no-cache" />
 <meta http-equiv="Expires" content="0" />
-<title>Portal de Alumnos</title>
+<title>Portal</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap" rel="stylesheet" />
@@ -63,9 +63,9 @@
 
 <!-- ============ SIN LINK DE LA ACADEMIA ============ -->
 <div class="tarjeta-login" id="pantallaSinEnlace" hidden>
-  <h1>👨‍👩‍👧‍👦 Portal</h1>
-  <p class="subtitulo">Aquí puedes ver el historial de asistencia de tu alumno y activar los avisos de cuándo llega a su clase.</p>
-  <p class="subtitulo">Para entrar, abre el enlace que te compartió tu academia.</p>
+  <h1>Portal</h1>
+  <p class="subtitulo">Aquí puedes ver el historial de asistencia y activar los avisos de llegada.</p>
+  <p class="subtitulo">Para entrar, abre el enlace que te compartieron.</p>
 </div>
 
 <!-- ============ ENTRAR: código del alumno + PIN ============ -->
@@ -73,7 +73,7 @@
   <img class="logo-login" id="logoLoginPortal" src="" alt="" hidden />
   <h1 id="tituloLoginPortal">🧒 Entrar al portal</h1>
   <p class="subtitulo" id="subtituloLoginPortal"></p>
-  <input type="text" id="inputPortalCodigo" placeholder="Código del alumno" inputmode="numeric" autocomplete="off" />
+  <input type="text" id="inputPortalCodigo" placeholder="Código" data-texto-placeholder="portalCodigoPlaceholder" inputmode="numeric" autocomplete="off" />
   <input type="password" id="inputPortalClave" placeholder="PIN" autocomplete="off" />
   <button class="btn" id="btnEntrarPortal">Entrar →</button>
   <p class="mensaje-error" id="mensajeErrorEntrarPortal"></p>
@@ -81,12 +81,12 @@
   <!-- Olvidé mi PIN (paso 1): código + correo registrado → llega un enlace por correo -->
   <div id="bloqueOlvidePin" hidden>
     <p class="subtitulo">Escribe el código y el correo que registraste en el portal. Te mandamos un enlace para poner un PIN nuevo.</p>
-    <input type="text" id="inputOlvideCodigo" placeholder="Código del alumno" inputmode="numeric" autocomplete="off" />
+    <input type="text" id="inputOlvideCodigo" placeholder="Código" data-texto-placeholder="portalCodigoPlaceholder" inputmode="numeric" autocomplete="off" />
     <input type="email" id="inputOlvideEmail" placeholder="Tu correo registrado" autocomplete="off" />
     <button class="btn" id="btnEnviarOlvidePin" type="button">Mandar enlace</button>
     <p class="mensaje-error" id="mensajeErrorOlvidePin"></p>
     <p class="mensaje-exito" id="mensajeExitoOlvidePin"></p>
-    <p class="subtitulo">Si no registraste un correo, pídele a tu academia que te genere un PIN nuevo.</p>
+    <p class="subtitulo" data-texto="portalSinCorreo">Si no registraste un correo, pide que te generen un PIN nuevo.</p>
   </div>
   <button class="enlace-texto" id="btnVolverPanelPortal" type="button" hidden>← Volver</button>
 </div>
@@ -111,7 +111,7 @@
       <h1 id="tituloPortalAcademia">👨‍👩‍👧‍👦 Portal</h1>
     </div>
     <div style="display:flex; gap:8px; flex-wrap:wrap;">
-      <button class="btn secundario chico" id="btnAgregarOtraAlumna" type="button">+ Agregar otro alumno</button>
+      <button class="btn secundario chico" id="btnAgregarOtraAlumna" type="button" data-texto="portalAgregarOtro">+ Agregar otro alumno</button>
       <button class="btn secundario chico" id="btnCerrarSesionPortal" type="button">Cerrar sesión</button>
     </div>
   </div>
@@ -184,7 +184,7 @@
   </div>
 
   <div class="panel">
-    <h2>🕐 Historial de entradas <span id="etiquetaHistorialEntradas">a la academia</span></h2>
+    <h2>🕐 Historial de entradas <span id="etiquetaHistorialEntradas" data-texto="portalEntradasA">a la academia</span></h2>
     <p class="ayuda">Cada marcación, con la hora exacta en que llegó.</p>
     <div class="lista-tarjetas" id="listaHistorialEntradas">
       <p class="lista-vacia">Cargando...</p>
@@ -223,16 +223,17 @@
 
     <hr style="border:none; border-top:1px solid var(--color-marca-suave2); margin:20px 0;" />
 
-    <button class="btn peligro" id="btnQuitarAlumnaPortal" type="button">Quitar a <span id="etiquetaQuitarAlumno">este alumno</span> de este dispositivo</button>
+    <button class="btn peligro" id="btnQuitarAlumnaPortal" type="button">Quitar a <span id="etiquetaQuitarAlumno" data-texto="portalQuitar">este alumno</span> de este dispositivo</button>
     <p class="ayuda" style="margin-top:8px;">Esto NO borra su historial ni su cuenta — solo deja de aparecer aquí en este teléfono/computadora. Puedes volver a agregarla cuando quieras con su código y su PIN.</p>
   </div>
 
 </div>
 
-<script src="bio-modulos-comun.js?v=f8af7d687de0"></script>
-<script src="bio-modulos-portal-pagos.js?v=f8af7d687de0"></script>
-<script src="bio-modulos-portal-cuentas.js?v=f8af7d687de0"></script>
-<script src="bio-modulos-portal.js?v=f8af7d687de0"></script>
-<script src="portal.js?v=f8af7d687de0"></script>
+<script src="bio-textos.js?v=365829a77e72"></script>
+<script src="bio-modulos-comun.js?v=365829a77e72"></script>
+<script src="bio-modulos-portal-pagos.js?v=365829a77e72"></script>
+<script src="bio-modulos-portal-cuentas.js?v=365829a77e72"></script>
+<script src="bio-modulos-portal.js?v=365829a77e72"></script>
+<script src="portal.js?v=365829a77e72"></script>
 </body>
 </html>
