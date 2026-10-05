@@ -10,7 +10,7 @@ const API_URL = "https://biometrico-saas.movedancea.workers.dev";
 // nueva de los archivos — ver verificarActualizacion() al final de
 // este archivo. NO cambiar este valor a mano: lo actualiza el script
 // actualizar-versiones.mjs cada vez que algo cambia.
-const VERSION_APP = "5c63ba1e480b";
+const VERSION_APP = "b7e9b3d4f683";
 
 const el = (id) => document.getElementById(id);
 
@@ -605,8 +605,7 @@ async function cargarAlumnas() {
         // Sigue con la sesión iniciada (NO se manda a volverALogin) —
         // así puede quedarse viendo la pantalla y usar "💳 Mensualidad"
         // para pagar y desbloquearse sola.
-        el("listaAlumnas").innerHTML =
-          '<p class="lista-vacia">Tu cuenta está desactivada por falta de pago de la mensualidad. Ve a "💳 Mensualidad" arriba para ponerte al día.</p>';
+        el("listaAlumnas").innerHTML = `<p class="lista-vacia">${escaparHtml(r.error || 'Tu cuenta está desactivada por falta de pago de la mensualidad. Ve a "💳 Mensualidad" arriba para ponerte al día.')}</p>`;
         el("infoLimiteAlumnas").textContent = "Cuenta desactivada";
         el("btnCrearAlumna").disabled = true;
         return;
@@ -647,6 +646,7 @@ function pintarMensualidad(r) {
   el("mensajeErrorMensualidad").textContent = "";
   el("mensajeExitoMensualidad").textContent = "";
   pintarEstadoComprobante(r);
+  pintarAvisoPrueba(r);
 
   if (r.estadoMes === "pagado") {
     el("mensualidadTextoAyuda").textContent = `Tu mensualidad de este mes (${r.mes}) ya está pagada. ¡Gracias!`;
@@ -658,13 +658,28 @@ function pintarMensualidad(r) {
     return;
   }
 
-  el("mensualidadEstadoTexto").style.color = r.pagoAlDia ? "inherit" : "#d0304c";
-  el("mensualidadEstadoTexto").textContent = r.pagoAlDia
-    ? "⏳ Pendiente de pago"
-    : "🚫 Cuenta desactivada por falta de pago";
-  el("mensualidadTextoAyuda").textContent = r.mensualidad
-    ? `Tu mensualidad de ${r.mes} es de Q${Number(r.mensualidad).toFixed(2)}. Genera tu link y págalo con tarjeta.`
-    : "Todavía no tienes una mensualidad asignada — pídele al administrador del sistema que te la configure.";
+  // En período de prueba todavía no tiene que pagar; el botón para pagar
+  // por adelantado sale solo en la última semana.
+  if (r.enPrueba) {
+    el("mensualidadEstadoTexto").textContent = "🧪 En período de prueba";
+    el("mensualidadEstadoTexto").style.color = "inherit";
+    el("mensualidadTextoAyuda").textContent = `Estás en período de prueba hasta el ${fechaLarga(r.pruebaHasta)}: todavía no tienes que pagar.`
+      + (r.avisoUrgente && r.mensualidad ? ` Si quieres, ya puedes pagar tu mensualidad de Q${Number(r.mensualidad).toFixed(2)} por adelantado.` : "");
+    if (!r.avisoUrgente || !r.mensualidad) {
+      el("btnGenerarLinkPago").hidden = true;
+      el("enlaceLinkPago").hidden = true;
+      el("mensualidadTextoLinkVence").hidden = true;
+      return;
+    }
+  } else {
+    el("mensualidadEstadoTexto").style.color = r.pagoAlDia ? "inherit" : "#d0304c";
+    el("mensualidadEstadoTexto").textContent = r.pagoAlDia
+      ? "⏳ Pendiente de pago"
+      : "🚫 Cuenta desactivada por falta de pago";
+    el("mensualidadTextoAyuda").textContent = r.mensualidad
+      ? `Tu mensualidad de ${r.mes} es de Q${Number(r.mensualidad).toFixed(2)}. Genera tu link y págalo con tarjeta.`
+      : "Todavía no tienes una mensualidad asignada — pídele al administrador del sistema que te la configure.";
+  }
 
   // Un botón a la vez: si ya hay un link generado y pendiente de pagar,
   // se muestra SOLO "Pagar ahora" (ya no tiene caso volver a generar
@@ -685,6 +700,37 @@ function pintarMensualidad(r) {
     }
   }
 }
+
+// ---------------------------------------------------------------
+// PERÍODO DE PRUEBA — aviso discreto con los días que quedan; en la
+// última semana, aviso destacado con "Ver mi plan" y "Contactar".
+// ---------------------------------------------------------------
+const MESES_LARGOS = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+
+function fechaLarga(fecha) {
+  const [a, m, d] = String(fecha || "").split("-").map(Number);
+  return a && m && d ? `${d} de ${MESES_LARGOS[m - 1]} de ${a}` : String(fecha || "");
+}
+
+function textoDiasPrueba(dias) {
+  if (dias === 0) return "hoy es el último día";
+  return dias === 1 ? "te queda 1 día" : `te quedan ${dias} días`;
+}
+
+function pintarAvisoPrueba(r) {
+  const enPrueba = !!r.enPrueba && r.estadoMes !== "pagado";
+  el("avisoPruebaDiscreto").hidden = !enPrueba || !!r.avisoUrgente;
+  el("avisoPruebaUrgente").hidden = !enPrueba || !r.avisoUrgente;
+  if (!enPrueba) return;
+  el("avisoPruebaDiscreto").textContent = `🧪 Período de prueba: ${textoDiasPrueba(r.diasPrueba)}.`;
+  el("avisoPruebaTitulo").textContent = `⏳ Tu período de prueba termina el ${fechaLarga(r.pruebaHasta)} (${textoDiasPrueba(r.diasPrueba)})`;
+  el("btnPruebaContactar").hidden = !r.contacto;
+  if (r.contacto) el("btnPruebaContactar").href = r.contacto;
+}
+
+el("btnPruebaVerPlan").addEventListener("click", () => {
+  el("panelMensualidad").scrollIntoView({ behavior: "smooth", block: "start" });
+});
 
 function pintarEstadoComprobante(r) {
   el("comprobanteEstadoTexto").textContent = r.comprobanteSubido

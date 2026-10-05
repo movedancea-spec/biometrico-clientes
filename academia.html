@@ -62,6 +62,17 @@
     </div>
   </div>
 
+  <!-- -------- Período de prueba (se llena desde academiaConsultarPago) -------- -->
+  <p class="ayuda" id="avisoPruebaDiscreto" hidden style="margin:0 0 12px;"></p>
+  <div class="panel" id="avisoPruebaUrgente" hidden style="border:2px solid #e0a020; background:#fff8e6;">
+    <h2 id="avisoPruebaTitulo" style="margin-top:0;"></h2>
+    <p class="ayuda" style="margin-bottom:12px;">Cuando termine, para seguir usando el sistema tendrás que pagar la mensualidad. Tus datos se quedan guardados.</p>
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+      <button class="btn chico" id="btnPruebaVerPlan" type="button">💳 Ver mi plan</button>
+      <a class="btn secundario chico" id="btnPruebaContactar" href="#" target="_blank" rel="noopener" hidden>💬 Contactar</a>
+    </div>
+  </div>
+
   <div class="panel aviso-kiosko">
     <h2>📟 ¿Buscas la pantalla para marcar entradas?</h2>
     <p class="ayuda" style="margin-bottom:12px;" data-texto-html="panelAyudaKiosko">Esta página es solo para administrar alumnos (agregar, editar, borrar). Para la pantalla de la tablet donde los alumnos ingresan su código, se muestra su foto y un mensaje de bienvenida, usa <strong>biometrico.html</strong> — esa la dejas abierta en la entrada, aparte de esta.</p>
@@ -80,7 +91,7 @@
   </div>
 
   <!-- -------- Mensualidad (cobro por usar el biométrico) -------- -->
-  <div class="panel">
+  <div class="panel" id="panelMensualidad">
     <h2>💳 Mensualidad</h2>
     <p class="ayuda" id="mensualidadTextoAyuda">Cargando el estado de tu mensualidad…</p>
     <p style="margin:10px 0;"><strong id="mensualidadEstadoTexto"></strong></p>
@@ -268,13 +279,13 @@
   </div>
 </div>
 
-<script src="bio-textos.js?v=5c63ba1e480b"></script>
-<script src="bio-modulos-comun.js?v=5c63ba1e480b"></script>
-<script src="bio-modulos-show.js?v=5c63ba1e480b"></script>
-<script src="bio-modulos-trajes.js?v=5c63ba1e480b"></script>
-<script src="bio-modulos-mensualidades.js?v=5c63ba1e480b"></script>
-<script src="bio-modulos-pagos.js?v=5c63ba1e480b"></script>
-<script src="bio-modulos-panel.js?v=5c63ba1e480b"></script>
-<script src="academia.js?v=5c63ba1e480b"></script>
+<script src="bio-textos.js?v=b7e9b3d4f683"></script>
+<script src="bio-modulos-comun.js?v=b7e9b3d4f683"></script>
+<script src="bio-modulos-show.js?v=b7e9b3d4f683"></script>
+<script src="bio-modulos-trajes.js?v=b7e9b3d4f683"></script>
+<script src="bio-modulos-mensualidades.js?v=b7e9b3d4f683"></script>
+<script src="bio-modulos-pagos.js?v=b7e9b3d4f683"></script>
+<script src="bio-modulos-panel.js?v=b7e9b3d4f683"></script>
+<script src="academia.js?v=b7e9b3d4f683"></script>
 </body>
 </html>

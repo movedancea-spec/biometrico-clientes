@@ -10,7 +10,7 @@ const API_URL = "https://biometrico-saas.movedancea.workers.dev";
 // nueva de los archivos — ver verificarActualizacion() al final de
 // este archivo. NO cambiar este valor a mano: lo actualiza el script
 // actualizar-versiones.mjs cada vez que algo cambia.
-const VERSION_APP = "5c63ba1e480b";
+const VERSION_APP = "b7e9b3d4f683";
 
 const el = (id) => document.getElementById(id);
 
@@ -201,20 +201,34 @@ async function cargarAcademias() {
       return;
     }
     catalogoModulos = r.catalogoModulos || [];
+    academiasCargadas = r.academias;
     pintarAcademias(r.academias);
   } catch (e) {
     el("listaAcademias").innerHTML = '<p class="lista-vacia">No se pudo cargar la lista. Revisa tu conexión.</p>';
   }
 }
 
-function pintarAcademias(academias) {
-  el("statCantidadAcademias").textContent = academias.length;
-  el("statAcademiasActivas").textContent = academias.filter((a) => a.activo).length;
-  el("statTotalAlumnas").textContent = academias.reduce((s, a) => s + (a.cantidadAlumnas || 0), 0);
+// Lista completa de la última carga (para el filtro "Solo clientes en prueba").
+let academiasCargadas = [];
 
+el("filtroSoloPrueba").addEventListener("change", () => pintarAcademias(academiasCargadas));
+
+function etiquetaPrueba(dias) {
+  return `🧪 En prueba (${dias === 0 ? "último día" : dias === 1 ? "1 día" : dias + " días"})`;
+}
+
+function pintarAcademias(todas) {
+  el("statCantidadAcademias").textContent = todas.length;
+  el("statAcademiasActivas").textContent = todas.filter((a) => a.activo).length;
+  el("statTotalAlumnas").textContent = todas.reduce((s, a) => s + (a.cantidadAlumnas || 0), 0);
+
+  const soloPrueba = el("filtroSoloPrueba").checked;
+  const academias = soloPrueba ? todas.filter((a) => a.enPrueba) : todas;
   const cont = el("listaAcademias");
   if (!academias.length) {
-    cont.innerHTML = '<p class="lista-vacia">Todavía no has creado ningún cliente.</p>';
+    cont.innerHTML = soloPrueba
+      ? '<p class="lista-vacia">Ningún cliente está en período de prueba.</p>'
+      : '<p class="lista-vacia">Todavía no has creado ningún cliente.</p>';
     return;
   }
 
@@ -231,7 +245,9 @@ function pintarAcademias(academias) {
           &nbsp;·&nbsp; ${a.cantidadAlumnas} / ${a.limite_alumnas} ${bioTextos.para(a.tipo_cliente).personas}
           &nbsp;·&nbsp; ${a.cantidadDispositivos} / ${a.limite_dispositivos} dispositivos
           &nbsp;·&nbsp; Q${Number(a.mensualidad || 0).toFixed(2)}/mes
-          &nbsp;·&nbsp; <span class="etiqueta-estado ${a.pago_al_dia ? "activa" : "inactiva"}">${a.pago_al_dia ? "Al día" : "Debe mensualidad"}</span>
+          &nbsp;·&nbsp; ${a.enPrueba
+            ? `<span class="etiqueta-estado activa" data-prueba>${etiquetaPrueba(a.diasPrueba)}</span>`
+            : `<span class="etiqueta-estado ${a.pago_al_dia ? "activa" : "inactiva"}">${a.pago_al_dia ? "Al día" : "Debe mensualidad"}</span>`}
           ${(a.modulos || []).length ? `<br/>🧩 ${escaparHtml(nombresModulos(a.modulos))}` : ""}
         </div>
       </div>
@@ -288,9 +304,12 @@ function abrirModalEditarAcademia(academia) {
   el("inputEditarEmailAcademia").value = academia.email || "";
   el("inputEditarMensualidad").value = academia.mensualidad || 0;
   el("inputEditarTipoCliente").value = academia.tipo_cliente || "academia";
-  el("textoEstadoPagoAcademia").textContent = academia.pago_al_dia
-    ? "Este mes está al día."
-    : "Debe la mensualidad de este mes (o de un mes anterior).";
+  el("inputEditarPruebaHasta").value = academia.prueba_hasta || "";
+  el("textoEstadoPagoAcademia").textContent = academia.enPrueba
+    ? `En período de prueba hasta el ${academia.prueba_hasta}: todavía no se le cobra.`
+    : academia.pago_al_dia
+      ? "Este mes está al día."
+      : "Debe la mensualidad de este mes (o de un mes anterior).";
   el("mensajeErrorEditarAcademia").textContent = "";
   pintarModulosAcademia(academia);
   el("modalEditarAcademia").hidden = false;
@@ -482,6 +501,8 @@ el("btnMarcarPagadoManual").addEventListener("click", async () => {
 
 el("btnCancelarEditarAcademia").addEventListener("click", () => { el("modalEditarAcademia").hidden = true; });
 
+el("btnQuitarPruebaHasta").addEventListener("click", () => { el("inputEditarPruebaHasta").value = ""; });
+
 el("btnGuardarEditarAcademia").addEventListener("click", async () => {
   const nombre = el("inputEditarNombreAcademia").value.trim();
   const claveNueva = el("inputEditarClaveAcademia").value.trim();
@@ -490,6 +511,7 @@ el("btnGuardarEditarAcademia").addEventListener("click", async () => {
   const email = el("inputEditarEmailAcademia").value.trim();
   const mensualidad = Number(el("inputEditarMensualidad").value) || 0;
   const tipoCliente = el("inputEditarTipoCliente").value;
+  const pruebaHasta = el("inputEditarPruebaHasta").value || null;
 
   el("mensajeErrorEditarAcademia").textContent = "";
 
@@ -509,6 +531,7 @@ el("btnGuardarEditarAcademia").addEventListener("click", async () => {
       email,
       mensualidad,
       tipoCliente,
+      pruebaHasta,
       ...(claveNueva ? { clave: claveNueva } : {}),
     });
     if (!r.success) { el("mensajeErrorEditarAcademia").textContent = r.error || "No se pudo guardar."; return; }
@@ -545,6 +568,7 @@ el("btnCrearAcademia").addEventListener("click", async () => {
   const email = el("inputNuevaAcademiaEmail").value.trim();
   const mensualidad = Number(el("inputNuevaAcademiaMensualidad").value) || 0;
   const tipoCliente = el("inputNuevaAcademiaTipo").value;
+  const pruebaHasta = el("inputNuevaAcademiaPruebaHasta").value || null;
 
   el("mensajeErrorCrear").textContent = "";
   el("mensajeExitoCrear").textContent = "";
@@ -554,7 +578,7 @@ el("btnCrearAcademia").addEventListener("click", async () => {
 
   el("btnCrearAcademia").disabled = true;
   try {
-    const r = await llamar("duenoCrearAcademia", { nombre, clave, limite, limiteDispositivos, email, mensualidad, tipoCliente });
+    const r = await llamar("duenoCrearAcademia", { nombre, clave, limite, limiteDispositivos, email, mensualidad, tipoCliente, pruebaHasta });
     if (!r.success) { el("mensajeErrorCrear").textContent = r.error || "No se pudo crear."; return; }
     el("mensajeExitoCrear").textContent = `Cliente "${nombre}" creado. Avísales el nombre y la contraseña para que entren a su panel.`;
     el("inputNuevaAcademiaNombre").value = "";
@@ -563,6 +587,7 @@ el("btnCrearAcademia").addEventListener("click", async () => {
     el("inputNuevaAcademiaLimiteDispositivos").value = "1";
     el("inputNuevaAcademiaEmail").value = "";
     el("inputNuevaAcademiaMensualidad").value = "";
+    el("inputNuevaAcademiaPruebaHasta").value = "";
     cargarAcademias();
   } catch (e) {
     el("mensajeErrorCrear").textContent = "No se pudo conectar. Inténtalo de nuevo.";
