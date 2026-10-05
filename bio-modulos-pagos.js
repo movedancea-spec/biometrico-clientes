@@ -1,7 +1,7 @@
 // ===============================================================
 // Módulo pagos en el panel de la academia (Fase 4): configuración
-// (modo manual con link fijo, o Paggo automático con la llave de la
-// academia), instrucciones con la URL del webhook y la de redirección,
+// (modo manual por transferencia o depósito a hasta 3 cuentas, o Paggo
+// automático con la llave de la academia), instrucciones con la URL del webhook y la de redirección,
 // bandeja de comprobantes y pagos por revisar, e historial. Lo arranca
 // bio-modulos-panel.js; usa el, llamar y sesion de academia.js, y
 // bioComun.
@@ -81,15 +81,17 @@ const modulosPagos = (() => {
         <label>Modo de pago</label>
         <select id="selectModoPagos">
           <option value=""${modo === "" ? " selected" : ""}>Apagado (no se ofrece pagar en el portal)</option>
-          <option value="manual"${modo === "manual" ? " selected" : ""}>Manual: un link de pago fijo + comprobante</option>
-          <option value="paggo"${modo === "paggo" ? " selected" : ""}>Paggo automático (link por el monto exacto)</option>
+          <option value="paggo"${modo === "paggo" ? " selected" : ""}>Automático con Paggo (monto exacto, se registra solo)</option>
+          <option value="manual"${modo === "manual" ? " selected" : ""}>Manual: transferencia o depósito + comprobante</option>
         </select>
+        <p class="ayuda" style="margin:4px 0 0;">Si tienes Paggo, usa el modo automático: el papá paga el monto exacto sin escribir nada y el pago se registra solo. El modo manual es para transferencia o depósito.</p>
       </div>
       <div id="bloqueModoManual"${modo === "manual" ? "" : " hidden"}>
+        <p class="ayuda">Al tocar "Pagar", la familia ve el monto exacto, estas cuentas y una referencia para escribir en su transferencia o boleta; después sube su comprobante y tú lo apruebas aquí abajo, en la bandeja. Puedes poner hasta 3 cuentas.</p>
+        ${[0, 1, 2].map((i) => htmlCuenta(i, (config.cuentas || [])[i] || {})).join("")}
         <div class="campo">
-          <label>Link de pago (cualquier proveedor)</label>
-          <input type="url" id="inputLinkManual" maxlength="500" placeholder="https://..." value="${c.escapar(config.linkManual || "")}" />
-          <p class="ayuda" style="margin:4px 0 0;">En el portal, junto a cada pago pendiente aparece "Pagar": abre este link y después la familia sube su comprobante. Tú lo apruebas aquí abajo, en la bandeja.</p>
+          <label>Instrucciones (opcional)</label>
+          <textarea id="inputInstruccionesPago" maxlength="500" placeholder="Ej.: también puedes pagar en efectivo en recepción.">${c.escapar(config.instrucciones || "")}</textarea>
         </div>
       </div>
       <button class="btn" type="button" id="btnGuardarModoPagos">Guardar</button>
@@ -103,6 +105,36 @@ const modulosPagos = (() => {
     });
     el("btnGuardarModoPagos").addEventListener("click", guardarModo);
     enlazarPaggo();
+  }
+
+  const TIPOS_CUENTA = ["Monetaria", "Ahorro", "Otra"];
+
+  function htmlCuenta(i, cuenta) {
+    return `
+      <div class="tarjeta-item" style="display:block; margin-bottom:8px;">
+        <div class="nombre-item">Cuenta ${i + 1}${i === 0 ? "" : " (opcional)"}</div>
+        <div class="fila-formulario">
+          <div><label>Banco</label><input type="text" data-cuenta="${i}" data-campo="banco" maxlength="60" value="${c.escapar(cuenta.banco || "")}" placeholder="Ej.: Banco Industrial" /></div>
+          <div><label>Tipo de cuenta</label><select data-cuenta="${i}" data-campo="tipoCuenta">${TIPOS_CUENTA.map((t) => `<option${(cuenta.tipoCuenta || "Monetaria") === t ? " selected" : ""}>${t}</option>`).join("")}</select></div>
+        </div>
+        <div class="fila-formulario">
+          <div><label>Número de cuenta</label><input type="text" data-cuenta="${i}" data-campo="numero" maxlength="40" value="${c.escapar(cuenta.numero || "")}" placeholder="Ej.: 123-456789-0" /></div>
+          <div><label>Nombre del titular</label><input type="text" data-cuenta="${i}" data-campo="titular" maxlength="80" value="${c.escapar(cuenta.titular || "")}" /></div>
+        </div>
+      </div>`;
+  }
+
+  // Cuentas del formulario: las que tienen algún dato (incompletas → error).
+  function leerCuentas() {
+    const cuentas = [];
+    for (const i of [0, 1, 2]) {
+      const valor = (campo) => el("contenidoConfigPagos").querySelector(`[data-cuenta="${i}"][data-campo="${campo}"]`).value.trim();
+      const cuenta = { banco: valor("banco"), tipoCuenta: valor("tipoCuenta"), numero: valor("numero"), titular: valor("titular") };
+      if (!cuenta.banco && !cuenta.numero && !cuenta.titular) continue;
+      if (!cuenta.banco || !cuenta.numero || !cuenta.titular) return { error: `Completa banco, número y titular de la cuenta ${i + 1} (o déjala vacía).` };
+      cuentas.push(cuenta);
+    }
+    return { cuentas };
   }
 
   function htmlPaggo() {
@@ -191,8 +223,11 @@ const modulosPagos = (() => {
     const modo = el("selectModoPagos").value || null;
     const datos = { modo };
     if (modo === "manual") {
-      datos.linkManual = el("inputLinkManual").value.trim();
-      if (!datos.linkManual) { el("mensajeErrorConfigPagos").textContent = "Pega el link de pago."; return; }
+      const { cuentas, error } = leerCuentas();
+      if (error) { el("mensajeErrorConfigPagos").textContent = error; return; }
+      if (!cuentas.length) { el("mensajeErrorConfigPagos").textContent = "Agrega al menos una cuenta para transferencia o depósito."; return; }
+      datos.cuentas = cuentas;
+      datos.instrucciones = el("inputInstruccionesPago").value.trim();
     }
     accionConfig("academiaGuardarConfigPagos", datos, () => "Guardado.");
   }
@@ -231,6 +266,7 @@ const modulosPagos = (() => {
         return `
           <div class="tarjeta-item" style="display:block;">
             <div class="nombre-item">🧾 ${c.escapar(x.alumnaNombre || "")} — ${c.escapar(x.descripcion || x.referencia)}</div>
+            ${x.referenciaEsperada ? `<div class="detalle-item">Referencia esperada en la transferencia o boleta: <strong>${c.escapar(x.referenciaEsperada)}</strong></div>` : ""}
             <div class="detalle-item">Subido el ${c.escapar(c.fechaHora(x.creadoEn))}${x.montoReportadoCentavos ? ` · dice que pagó ${c.dinero(x.montoReportadoCentavos, moneda)}` : ""}${x.faltaCentavos !== null ? ` · falta ${c.dinero(x.faltaCentavos, moneda)}` : " · la referencia ya no existe"}
               · <a href="${c.escapar(x.archivoUrl || "#")}" target="_blank" rel="noopener">Ver ${x.tipoArchivo === "application/pdf" ? "PDF" : "foto"} →</a></div>
             <div class="fila-formulario" style="margin-top:8px;">

@@ -1,7 +1,9 @@
 // ===============================================================
 // Módulo pagos en el Portal de Alumnos (Fase 4): botón "Pagar" junto a
 // cada mensualidad pendiente o parcial y cada cargo de traje con saldo.
-//   - manual: abre el link de la academia y permite subir el comprobante.
+//   - manual: muestra el monto exacto, las cuentas de la academia y una
+//     referencia para la transferencia o boleta, y permite subir el
+//     comprobante.
 //   - paggo: genera el link por el monto exacto y luego "Ya pagué,
 //     verificar". Al volver de Paggo (?pago=volver) verifica solo.
 // También muestra "Mis pagos" (comprobantes y pagos en línea). Lo usa
@@ -31,7 +33,7 @@ const modulosPortalPagos = (() => {
     return config;
   }
 
-  const disponible = () => !!config && ((config.modo === "manual" && config.linkManual) || (config.modo === "paggo" && config.pagoEnLineaDisponible));
+  const disponible = () => !!config && ((config.modo === "manual" && config.pagoManualDisponible) || (config.modo === "paggo" && config.pagoEnLineaDisponible));
 
   // HTML del botón "Pagar" (vacío si no aplica).
   function boton(referencia, faltaCentavos, moneda) {
@@ -49,23 +51,56 @@ const modulosPortalPagos = (() => {
     contenedor.querySelectorAll("[data-pagar-ref]").forEach((b) => b.addEventListener("click", () => {
       const referencia = b.dataset.pagarRef;
       const zona = contenedor.querySelector(`[data-zona-pago="${CSS.escape(referencia)}"]`);
-      if (config.modo === "manual") pagarManual(zona, entrada, referencia, Number(b.dataset.falta), moneda, recargar);
+      if (config.modo === "manual") pagarManual(zona, entrada, referencia, moneda);
       else pagarEnLinea(zona, entrada, referencia, recargar);
     }));
   }
 
   // ---- manual ----
-  function pagarManual(zona, entrada, referencia, falta, moneda, recargar) {
-    window.open(config.linkManual, "_blank", "noopener");
+  const botonCopiar = (texto) => `<button class="btn secundario chico" type="button" data-copiar-texto="${c.escapar(texto)}" style="width:auto; margin-left:6px;">📋 Copiar</button>`;
+
+  async function pagarManual(zona, entrada, referencia, moneda) {
+    zona.innerHTML = '<p class="ayuda" style="margin:8px 0 0;">Cargando los datos de pago...</p>';
+    let r;
+    try {
+      r = await llamar("portalDatosPago", { referencia }, entrada);
+    } catch (e) {
+      zona.innerHTML = '<p class="mensaje-error">No se pudo conectar. Inténtalo de nuevo.</p>';
+      return;
+    }
+    if (!r.success) { zona.innerHTML = `<p class="mensaje-error">${c.escapar(r.error || "No se pudieron cargar los datos de pago.")}</p>`; return; }
+    const m = r.moneda || moneda;
     zona.innerHTML = `
       <div class="tarjeta-item" style="display:block; margin-top:8px;">
-        <p class="ayuda" style="margin:0 0 8px;">Se abrió el link de pago de la academia. Cuando termines, sube aquí tu comprobante (foto o PDF, máximo 5 MB).</p>
-        <input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" data-archivo />
-        <input type="text" inputmode="decimal" data-monto placeholder="¿Cuánto pagaste? (opcional)" value="${c.montoParaInput(falta)}" />
-        <button class="btn chico" type="button" data-subir style="width:auto;">Subir comprobante</button>
+        <p style="margin:0 0 8px;">Monto a pagar: <strong style="font-size:18px;">${c.dinero(r.montoCentavos, m)}</strong></p>
+        ${r.cuentas.map((cu) => `
+          <div style="margin-bottom:8px; font-size:14px;">
+            <strong>${c.escapar(cu.banco)}</strong>${cu.tipoCuenta ? ` · ${c.escapar(cu.tipoCuenta)}` : ""}<br/>
+            Cuenta: <strong data-numero-cuenta>${c.escapar(cu.numero)}</strong>${botonCopiar(cu.numero)}<br/>
+            A nombre de: ${c.escapar(cu.titular)}
+          </div>`).join("")}
+        <p style="margin:8px 0 4px; font-size:14px;">Referencia: <strong data-referencia-sugerida>${c.escapar(r.referenciaSugerida)}</strong>${botonCopiar(r.referenciaSugerida)}</p>
+        <p class="ayuda" style="margin:0 0 8px;">Escribe esta referencia en la descripción de tu transferencia o boleta y luego sube tu comprobante.</p>
+        ${r.instrucciones ? `<p class="ayuda" style="margin:0 0 8px;">${c.escapar(r.instrucciones)}</p>` : ""}
+        <button class="btn chico" type="button" data-mostrar-subir style="width:auto;">Subir comprobante</button>
+        <div data-form-subir hidden style="margin-top:8px;">
+          <input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" data-archivo />
+          <input type="text" inputmode="decimal" data-monto placeholder="¿Cuánto pagaste?" value="${c.montoParaInput(r.montoCentavos)}" aria-label="Monto pagado" />
+          <button class="btn chico" type="button" data-subir style="width:auto;">Enviar comprobante</button>
+          <p class="ayuda" style="margin:4px 0 0;">Foto (JPG, PNG o WEBP) o PDF, máximo 5 MB.</p>
+        </div>
         <p class="mensaje-error" data-error></p>
         <p class="mensaje-exito" data-exito></p>
       </div>`;
+    zona.querySelectorAll("[data-copiar-texto]").forEach((b) => b.addEventListener("click", async () => {
+      try { await navigator.clipboard.writeText(b.dataset.copiarTexto); b.textContent = "✅ Copiado"; }
+      catch (e) { b.textContent = "Cópialo a mano"; }
+      setTimeout(() => { b.textContent = "📋 Copiar"; }, 3000);
+    }));
+    zona.querySelector("[data-mostrar-subir]").addEventListener("click", () => {
+      zona.querySelector("[data-form-subir]").hidden = false;
+      zona.querySelector("[data-mostrar-subir]").hidden = true;
+    });
     zona.querySelector("[data-subir]").addEventListener("click", async () => {
       const error = zona.querySelector("[data-error]");
       const exito = zona.querySelector("[data-exito]");
